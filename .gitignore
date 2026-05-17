@@ -1,0 +1,14 @@
+# Mobile app common ignores
+node_modules/
+.expo/
+.dart_tool/
+build/
+dist/
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
