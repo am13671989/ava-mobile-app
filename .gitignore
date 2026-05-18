@@ -1,32 +1,25 @@
-# Android / Gradle
+# Gradle
 .gradle/
 build/
 */build/
+
+# Android Studio local files
+.idea/workspace.xml
+.idea/caches/
+.idea/libraries/
 local.properties
-.cxx/
-.externalNativeBuild/
 
-# Release artifacts and signing secrets
-*.jks
-*.keystore
-*.aab
+# Generated files
 *.apk
-app/release/
-newfoldwer/
+*.aab
+*.ap_
+*.dex
+*.class
 
-# Kotlin / IDE
-.kotlin/
-.idea/
+# Python helper cache
+__pycache__/
+*.py[cod]
 
-# Mobile app common ignores
-node_modules/
-.expo/
-.dart_tool/
-dist/
-.env
-.env.*
-
-# OS / editor
+# OS files
 .DS_Store
 Thumbs.db
-.vscode/
