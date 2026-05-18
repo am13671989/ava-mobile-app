@@ -1,0 +1,25 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "info.avaintelligent.outfit"
+    compileSdk 35
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    defaultConfig {
+        applicationId "info.avaintelligent.outfit"
+        minSdk 24
+        targetSdk 35
+        versionCode 1
+        versionName "1.0"
+
+        def googleCloudVisionApiKey = project.findProperty("GOOGLE_CLOUD_VISION_API_KEY") ?: ""
+        buildConfigField "String", "GOOGLE_CLOUD_VISION_API_KEY", "\"${googleCloudVisionApiKey}\""
+        def wardrobeBackendBaseUrl = project.findProperty("WARDROBE_BACKEND_BASE_URL") ?: ""
+        buildConfigField "String", "WARDROBE_BACKEND_BASE_URL", "\"${wardrobeBackendBaseUrl}\""
+    }
+}

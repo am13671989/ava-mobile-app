@@ -1,0 +1,12 @@
+Bag
+Dress
+Hat
+Hoodie
+Jacket
+Pants
+Shirt
+Shoes
+Shorts
+Skirt
+Socks
+T-Shirt
