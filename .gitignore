@@ -1,8 +1,27 @@
+# Android / Gradle
+.gradle/
+build/
+*/build/
+local.properties
+.cxx/
+.externalNativeBuild/
+
+# Release artifacts and signing secrets
+*.jks
+*.keystore
+*.aab
+*.apk
+app/release/
+newfoldwer/
+
+# Kotlin / IDE
+.kotlin/
+.idea/
+
 # Mobile app common ignores
 node_modules/
 .expo/
 .dart_tool/
-build/
 dist/
 .env
 .env.*
@@ -11,4 +30,3 @@ dist/
 .DS_Store
 Thumbs.db
 .vscode/
-.idea/
