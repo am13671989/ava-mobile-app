@@ -1,7 +1,9 @@
 package info.avaintelligent.outfit;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -15,6 +17,8 @@ import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.location.Location;
+import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -44,6 +48,8 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Arrays;
+import java.util.List;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Locale;
@@ -51,6 +57,7 @@ import java.util.Locale;
 public class MainActivity extends Activity {
     private static final int REQUEST_CAMERA = 10;
     private static final int REQUEST_GALLERY = 11;
+    private static final int REQUEST_LOCATION = 12;
 
     private static final int CANVAS = Color.rgb(245, 241, 234);
     private static final int SURFACE = Color.rgb(255, 252, 247);
@@ -74,6 +81,9 @@ public class MainActivity extends Activity {
     private String lastAiDetails = "Use camera or gallery, then extract a clean 2D clothing image.";
     private boolean analysisInProgress;
     private int selectedWeatherIndex = 1;
+    private WeatherOutfit liveWeatherOutfit;
+    private String weatherStatus = "Using demo weather until location is available.";
+    private boolean weatherLoading;
     private final ArrayList<SavedClothingItem> savedClothingItems = new ArrayList<>();
 
     @Override
@@ -84,8 +94,118 @@ public class MainActivity extends Activity {
             getWindow().setNavigationBarColor(SURFACE);
         }
         showApp();
+        requestLocationWeather();
     }
 
+    private void requestLocationWeather() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                && checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_LOCATION);
+            weatherStatus = "Location permission is needed for live weather.";
+            renderTab(selectedTab);
+            return;
+        }
+        updateWeatherFromLastLocation();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_LOCATION) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                updateWeatherFromLastLocation();
+            } else {
+                weatherStatus = "Location permission denied. Manual weather fallback is active.";
+                renderTab(selectedTab);
+            }
+        }
+    }
+
+    private void updateWeatherFromLastLocation() {
+        Location location = findLastKnownLocation();
+        if (location == null) {
+            weatherStatus = "No phone location yet. Open Maps once or enable location, then refresh.";
+            renderTab(selectedTab);
+            return;
+        }
+        weatherLoading = true;
+        weatherStatus = "Updating live weather from your location...";
+        renderTab(selectedTab);
+        new Thread(() -> {
+            try {
+                WeatherOutfit outfit = fetchWeatherOutfit(location.getLatitude(), location.getLongitude());
+                runOnUiThread(() -> {
+                    liveWeatherOutfit = outfit;
+                    weatherLoading = false;
+                    weatherStatus = "Live weather from your location: " + outfit.weatherLabel + " " + outfit.temperature;
+                    renderTab(selectedTab);
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    weatherLoading = false;
+                    weatherStatus = "Weather update failed. Manual weather fallback is active.";
+                    renderTab(selectedTab);
+                });
+            }
+        }).start();
+    }
+
+    private Location findLastKnownLocation() {
+        LocationManager manager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        if (manager == null) return null;
+        List<String> providers = Arrays.asList(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER, LocationManager.PASSIVE_PROVIDER);
+        Location best = null;
+        for (String provider : providers) {
+            try {
+                Location location = manager.getLastKnownLocation(provider);
+                if (location != null && (best == null || location.getTime() > best.getTime())) {
+                    best = location;
+                }
+            } catch (SecurityException ignored) {
+                return null;
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        return best;
+    }
+
+    private WeatherOutfit fetchWeatherOutfit(double latitude, double longitude) throws Exception {
+        String urlText = String.format(Locale.US,
+                "https://api.open-meteo.com/v1/forecast?latitude=%.5f&longitude=%.5f&current=temperature_2m,weather_code,rain,precipitation,wind_speed_10m",
+                latitude,
+                longitude);
+        HttpURLConnection connection = (HttpURLConnection) new URL(urlText).openConnection();
+        connection.setConnectTimeout(8000);
+        connection.setReadTimeout(8000);
+        connection.setRequestMethod("GET");
+        String body = readStream(connection.getInputStream());
+        connection.disconnect();
+        JSONObject current = new JSONObject(body).getJSONObject("current");
+        double temperature = current.optDouble("temperature_2m", 19.0);
+        double rain = Math.max(current.optDouble("rain", 0.0), current.optDouble("precipitation", 0.0));
+        double wind = current.optDouble("wind_speed_10m", 0.0);
+        int weatherCode = current.optInt("weather_code", 1);
+        return outfitForWeather(temperature, rain, wind, weatherCode);
+    }
+
+    private WeatherOutfit outfitForWeather(double temperature, double rain, double wind, int weatherCode) {
+        String temp = String.format(Locale.US, "%.0f C", temperature);
+        boolean rainy = rain > 0.1 || (weatherCode >= 51 && weatherCode <= 67) || weatherCode >= 80;
+        if (rainy) {
+            return new WeatherOutfit("Rainy", temp, "Water-resistant trench, knit top, dark chinos, waterproof sneakers, compact umbrella.", "Water-resistant trench", "Fine knit top", "Dark chinos", "Waterproof sneakers", "Compact umbrella", "Live rain is detected near you, so the outfit prioritizes water resistance and protected shoes.", "A lightweight waterproof trench would make rainy-day outfits much easier.");
+        }
+        if (wind >= 25.0) {
+            return new WeatherOutfit("Windy", temp, "Zip jacket, structured tee, straight trousers, stable sneakers, cap.", "Zip jacket", "Structured tee", "Straight trousers", "Stable sneakers", "Cap", "Wind speed is high near you, so secure layers work better than loose pieces.", "A wind-resistant zip jacket would fill an important wardrobe gap.");
+        }
+        if (temperature >= 26.0) {
+            return new WeatherOutfit("Hot", temp, "Linen shirt, breathable tee, light shorts, canvas sneakers, sunglasses.", "Linen shirt", "Breathable tee", "Light shorts", "Canvas sneakers", "Sunglasses", "Your local temperature is warm, so breathable fabrics and lighter colors are recommended.", "Add linen or cotton pieces for hot days and summer travel.");
+        }
+        if (temperature <= 10.0) {
+            return new WeatherOutfit("Cold", temp, "Wool coat, thermal layer, dark denim, leather boots, scarf.", "Wool coat", "Thermal layer", "Dark denim", "Leather boots", "Scarf", "Your local temperature is low, so warm layers and closed shoes are recommended.", "A neutral wool coat would improve winter outfit quality.");
+        }
+        return new WeatherOutfit("Mild", temp, "Navy overshirt, white tee, beige trousers, white sneakers, brown belt.", "Navy overshirt", "White tee", "Beige trousers", "White sneakers", "Brown belt", "Your local weather is comfortable, so light layers give flexibility through the day.", "A white overshirt would unlock more mild-weather combinations.");
+    }
     private void showApp() {
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
