@@ -81,6 +81,7 @@ public class MainActivity extends Activity {
     private String lastAiDetails = "Use camera or gallery, then extract a clean 2D clothing image.";
     private boolean analysisInProgress;
     private int selectedWeatherIndex = 1;
+    private int selectedOccasionIndex = 0;
     private WeatherOutfit liveWeatherOutfit;
     private String weatherStatus = "Using demo weather until location is available.";
     private boolean weatherLoading;
@@ -245,12 +246,12 @@ public class MainActivity extends Activity {
     }
 
     private void home() {
-        WeatherOutfit outfit = currentWeatherOutfit();
+        WeatherOutfit outfit = occasionAdjustedOutfit();
         LinearLayout page = page("Today", "Your AI stylist picked a weather-aware look.");
         LinearLayout hero = panel(FOREST);
         hero.addView(label(outfit.weatherLabel + "  |  " + outfit.temperature + "  |  Casual Friday", 14, Color.WHITE, false));
         hero.addView(spacer(14));
-        hero.addView(label("Weather Smart Set", 27, Color.WHITE, true));
+        hero.addView(label(currentOccasionLabel() + " Smart Set", 27, Color.WHITE, true));
         hero.addView(label(outfit.summary, 15, Color.WHITE, false));
         hero.addView(spacer(16));
         hero.addView(outfitPreview());
@@ -260,7 +261,7 @@ public class MainActivity extends Activity {
         page.addView(hero);
 
         page.addView(section("Occasion"));
-        page.addView(chips(new String[]{"Casual", "Office", "Party", "Date", "Travel", "Classic"}));
+        page.addView(occasionSelector());
 
         page.addView(section("Recently Added"));
         page.addView(horizontalCards(new String[]{"White Tee", "Navy Jacket", "Beige Trouser", "Brown Loafer"}));
@@ -951,7 +952,7 @@ public class MainActivity extends Activity {
         return output;
     }
     private void outfitAi() {
-        WeatherOutfit outfit = currentWeatherOutfit();
+        WeatherOutfit outfit = occasionAdjustedOutfit();
         LinearLayout page = page("Outfit AI", "Generate a look from your real wardrobe and today's weather.");
         LinearLayout generator = panel(SURFACE);
         generator.addView(label("Generate outfit", 22, INK, true));
@@ -1145,6 +1146,56 @@ public class MainActivity extends Activity {
         return wrap;
     }
 
+    private LinearLayout occasionSelector() {
+        String[] labels = {"Casual", "Office", "Party", "Date", "Travel", "Classic"};
+        HorizontalScrollView scroll = new HorizontalScrollView(this);
+        scroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        for (int i = 0; i < labels.length; i++) {
+            final int index = i;
+            boolean selected = selectedOccasionIndex == i;
+            TextView chip = label(labels[i], 14, selected ? Color.WHITE : INK, true);
+            chip.setGravity(Gravity.CENTER);
+            chip.setPadding(dp(16), dp(8), dp(16), dp(8));
+            chip.setBackground(round(selected ? FOREST : SURFACE, 22, selected ? FOREST : LINE));
+            chip.setOnClickListener(v -> {
+                selectedOccasionIndex = index;
+                renderTab(0);
+            });
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, -2);
+            params.setMargins(0, 0, dp(9), dp(8));
+            row.addView(chip, params);
+        }
+        scroll.addView(row);
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.addView(scroll);
+        return wrap;
+    }
+
+    private String currentOccasionLabel() {
+        String[] labels = {"Casual", "Office", "Party", "Date", "Travel", "Classic"};
+        int index = Math.max(0, Math.min(selectedOccasionIndex, labels.length - 1));
+        return labels[index];
+    }
+
+    private WeatherOutfit occasionAdjustedOutfit() {
+        WeatherOutfit base = currentWeatherOutfit();
+        switch (selectedOccasionIndex) {
+            case 1:
+                return new WeatherOutfit(base.weatherLabel, base.temperature, "Structured blazer, crisp shirt, tailored trousers, leather loafers, slim belt.", "Structured blazer", "Crisp shirt", "Tailored trousers", "Leather loafers", base.extra, base.reason + " The office mode keeps the look sharper and more professional.", "A wrinkle-resistant blazer would improve workday outfits.");
+            case 2:
+                return new WeatherOutfit(base.weatherLabel, base.temperature, "Statement overshirt, dark tee, black trousers, polished sneakers, silver accessory.", "Statement overshirt", "Dark tee", "Black trousers", "Polished sneakers", "Silver accessory", base.reason + " Party mode adds stronger contrast and a more expressive focal piece.", "A statement overshirt or evening jacket would unlock more party looks.");
+            case 3:
+                return new WeatherOutfit(base.weatherLabel, base.temperature, "Soft jacket, fitted knit, clean chinos, suede shoes, subtle fragrance.", "Soft jacket", "Fitted knit", "Clean chinos", "Suede shoes", "Subtle fragrance", base.reason + " Date mode uses softer textures and a warmer smart-casual tone.", "A soft neutral knit would make date looks feel more intentional.");
+            case 4:
+                return new WeatherOutfit(base.weatherLabel, base.temperature, "Packable jacket, breathable tee, stretch trousers, comfortable sneakers, crossbody bag.", "Packable jacket", "Breathable tee", "Stretch trousers", "Comfortable sneakers", "Crossbody bag", base.reason + " Travel mode prioritizes comfort, movement, and useful layers.", "A packable weather-resistant jacket would be ideal for trips.");
+            case 5:
+                return new WeatherOutfit(base.weatherLabel, base.temperature, "Navy overshirt, white tee, beige trousers, brown loafers, leather belt.", "Navy overshirt", "White tee", "Beige trousers", "Brown loafers", "Leather belt", base.reason + " Classic mode keeps the outfit timeless and easy to repeat.", "A high-quality leather belt would complete more classic looks.");
+            default:
+                return base;
+        }
+    }
     private LinearLayout weatherSelector() {
         String[] labels = {"Rainy", "Mild", "Hot", "Cold", "Windy"};
         HorizontalScrollView scroll = new HorizontalScrollView(this);
