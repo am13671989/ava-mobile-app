@@ -30,6 +30,7 @@ import android.widget.Button;
 import android.widget.GridLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
@@ -86,6 +87,8 @@ public class MainActivity extends Activity {
     private int selectedWeatherIndex = 1;
     private int selectedOccasionIndex = 0;
     private int selectedAvatarIndex = 0;
+    private boolean onboardingComplete;
+    private String userAge = "";
     private WeatherOutfit liveWeatherOutfit;
     private String weatherStatus = "Using demo weather until location is available.";
     private boolean weatherLoading;
@@ -98,7 +101,7 @@ public class MainActivity extends Activity {
             getWindow().setStatusBarColor(CANVAS);
             getWindow().setNavigationBarColor(SURFACE);
         }
-        showApp();
+        showOnboarding();
         requestLocationWeather();
     }
 
@@ -108,7 +111,7 @@ public class MainActivity extends Activity {
                 && checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_LOCATION);
             weatherStatus = "Location permission is needed for live weather.";
-            renderTab(selectedTab);
+            if (onboardingComplete) renderTab(selectedTab);
             return;
         }
         updateWeatherFromLastLocation();
@@ -122,7 +125,7 @@ public class MainActivity extends Activity {
                 updateWeatherFromLastLocation();
             } else {
                 weatherStatus = "Location permission denied. Manual weather fallback is active.";
-                renderTab(selectedTab);
+                if (onboardingComplete) renderTab(selectedTab);
             }
         }
     }
@@ -131,7 +134,7 @@ public class MainActivity extends Activity {
         Location location = findLastKnownLocation();
         if (location == null) {
             weatherStatus = "No phone location yet. Open Maps once or enable location, then refresh.";
-            renderTab(selectedTab);
+            if (onboardingComplete) renderTab(selectedTab);
             return;
         }
         weatherLoading = true;
@@ -144,13 +147,13 @@ public class MainActivity extends Activity {
                     liveWeatherOutfit = outfit;
                     weatherLoading = false;
                     weatherStatus = "Live weather from your location: " + outfit.weatherLabel + " " + outfit.temperature;
-                    renderTab(selectedTab);
+                    if (onboardingComplete) renderTab(selectedTab);
                 });
             } catch (Exception error) {
                 runOnUiThread(() -> {
                     weatherLoading = false;
                     weatherStatus = "Weather update failed. Manual weather fallback is active.";
-                    renderTab(selectedTab);
+                    if (onboardingComplete) renderTab(selectedTab);
                 });
             }
         }).start();
@@ -211,6 +214,56 @@ public class MainActivity extends Activity {
         }
         return new WeatherOutfit("Mild", temp, "Navy overshirt, white tee, beige trousers, white sneakers, brown belt.", "Navy overshirt", "White tee", "Beige trousers", "White sneakers", "Brown belt", "Your local weather is comfortable, so light layers give flexibility through the day.", "A white overshirt would unlock more mild-weather combinations.");
     }
+    private void showOnboarding() {
+        root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(CANVAS);
+
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
+        page.setPadding(dp(18), dp(28), dp(18), dp(22));
+        scroll.addView(page);
+        root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+
+        page.addView(label("Create Your Style Profile", 28, INK, true));
+        page.addView(label("Enter your age, then select one avatar that best fits your body. You can also upload your own photo.", 15, MUTED, false));
+        page.addView(spacer(18));
+
+        LinearLayout ageCard = panel(SURFACE);
+        ageCard.addView(label("Your age", 17, INK, true));
+        EditText ageInput = new EditText(this);
+        ageInput.setText(userAge);
+        ageInput.setHint("Example: 28");
+        ageInput.setSingleLine(true);
+        ageInput.setTextColor(INK);
+        ageInput.setHintTextColor(MUTED);
+        ageInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        ageInput.setBackground(round(BLUSH, 8, LINE));
+        ageInput.setPadding(dp(12), 0, dp(12), 0);
+        ageCard.addView(ageInput, new LinearLayout.LayoutParams(-1, dp(52)));
+        page.addView(ageCard);
+
+        page.addView(section("Please select one of these avatars that fits your body"));
+        page.addView(avatarSelector(false));
+        page.addView(personPhotoPanel(currentWeatherOutfit()));
+
+        Button next = button("Next", FOREST, Color.WHITE);
+        next.setOnClickListener(v -> {
+            userAge = ageInput.getText().toString().trim();
+            if (userAge.isEmpty()) {
+                Toast.makeText(this, "Please enter your age.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            onboardingComplete = true;
+            showApp();
+            requestLocationWeather();
+        });
+        page.addView(spacer(14));
+        page.addView(next, new LinearLayout.LayoutParams(-1, dp(54)));
+
+        setContentView(root);
+    }
     private void showApp() {
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -263,10 +316,6 @@ public class MainActivity extends Activity {
         Button wear = button("Wear This", Color.WHITE, FOREST);
         hero.addView(wear, new LinearLayout.LayoutParams(-1, dp(48)));
         page.addView(hero);
-
-        page.addView(section("Your Avatar"));
-        page.addView(avatarSelector());
-        page.addView(personPhotoPanel(outfit));
 
         page.addView(section("Occasion"));
         page.addView(occasionSelector());
@@ -391,7 +440,11 @@ public class MainActivity extends Activity {
         if (bitmap != null && (requestCode == REQUEST_PERSON_CAMERA || requestCode == REQUEST_PERSON_GALLERY)) {
             personPhoto = bitmap;
             Toast.makeText(this, "Photo added for outfit preview", Toast.LENGTH_SHORT).show();
-            renderTab(0);
+            if (onboardingComplete) {
+                renderTab(0);
+            } else {
+                showOnboarding();
+            }
             return;
         }
 
@@ -1162,6 +1215,10 @@ public class MainActivity extends Activity {
     }
 
     private LinearLayout avatarSelector() {
+        return avatarSelector(true);
+    }
+
+    private LinearLayout avatarSelector(boolean returnHomeOnSelect) {
         String[] avatars = {"A", "B", "C", "D"};
         int[] colors = {Color.rgb(38, 57, 79), Color.rgb(201, 176, 138), Color.rgb(109, 75, 60), Color.rgb(88, 109, 140)};
         HorizontalScrollView scroll = new HorizontalScrollView(this);
