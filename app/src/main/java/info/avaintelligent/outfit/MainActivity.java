@@ -73,6 +73,7 @@ public class MainActivity extends Activity {
     private String lastAiResult = "No clothing image selected yet.";
     private String lastAiDetails = "Use camera or gallery, then extract a clean 2D clothing image.";
     private boolean analysisInProgress;
+    private int selectedWeatherIndex = 1;
     private final ArrayList<SavedClothingItem> savedClothingItems = new ArrayList<>();
 
     @Override
@@ -124,12 +125,13 @@ public class MainActivity extends Activity {
     }
 
     private void home() {
-        LinearLayout page = page("Today", "Your AI stylist picked a clean smart casual look.");
+        WeatherOutfit outfit = currentWeatherOutfit();
+        LinearLayout page = page("Today", "Your AI stylist picked a weather-aware look.");
         LinearLayout hero = panel(FOREST);
-        hero.addView(label("19 C  |  Casual Friday", 14, Color.WHITE, false));
+        hero.addView(label(outfit.weatherLabel + "  |  " + outfit.temperature + "  |  Casual Friday", 14, Color.WHITE, false));
         hero.addView(spacer(14));
-        hero.addView(label("Navy Overshirt Set", 27, Color.WHITE, true));
-        hero.addView(label("White tee, beige trousers, white sneakers, brown belt.", 15, Color.WHITE, false));
+        hero.addView(label("Weather Smart Set", 27, Color.WHITE, true));
+        hero.addView(label(outfit.summary, 15, Color.WHITE, false));
         hero.addView(spacer(16));
         hero.addView(outfitPreview());
         hero.addView(spacer(14));
@@ -144,8 +146,8 @@ public class MainActivity extends Activity {
         page.addView(horizontalCards(new String[]{"White Tee", "Navy Jacket", "Beige Trouser", "Brown Loafer"}));
 
         page.addView(section("Stylist Notes"));
-        page.addView(insight("Strong palette", "Navy, white, beige, and brown give you easy outfit combinations."));
-        page.addView(insight("Missing piece", "A white overshirt would unlock 12 more outfits."));
+        page.addView(insight("Weather logic", outfit.reason));
+        page.addView(insight("Missing piece", outfit.shoppingTip));
     }
 
     private void wardrobe() {
@@ -829,26 +831,31 @@ public class MainActivity extends Activity {
         return output;
     }
     private void outfitAi() {
-        LinearLayout page = page("Outfit AI", "Generate a look from your real wardrobe.");
+        WeatherOutfit outfit = currentWeatherOutfit();
+        LinearLayout page = page("Outfit AI", "Generate a look from your real wardrobe and today's weather.");
         LinearLayout generator = panel(SURFACE);
         generator.addView(label("Generate outfit", 22, INK, true));
-        generator.addView(label("Pick occasion and color mood.", 14, MUTED, false));
+        generator.addView(label("Pick occasion, color mood, and weather condition.", 14, MUTED, false));
         generator.addView(spacer(10));
         generator.addView(chips(new String[]{"Office", "Date", "Party", "Streetwear"}));
         generator.addView(chips(new String[]{"Warm", "Neutral", "Bold", "Monochrome"}));
-        generator.addView(button("Generate Look", FOREST, Color.WHITE), new LinearLayout.LayoutParams(-1, dp(48)));
+        generator.addView(label("Day weather", 15, INK, true));
+        generator.addView(weatherSelector());
+        generator.addView(button("Generate Weather Look", FOREST, Color.WHITE), new LinearLayout.LayoutParams(-1, dp(48)));
         page.addView(generator);
 
         page.addView(section("Current Look"));
         LinearLayout canvas = panel(SURFACE);
-        canvas.addView(outfitRow("Navy overshirt", "Outerwear"));
-        canvas.addView(outfitRow("White tee", "Top"));
-        canvas.addView(outfitRow("Beige trousers", "Bottom"));
-        canvas.addView(outfitRow("White sneakers", "Shoes"));
+        canvas.addView(outfitRow(outfit.outerwear, "Outerwear"));
+        canvas.addView(outfitRow(outfit.top, "Top"));
+        canvas.addView(outfitRow(outfit.bottom, "Bottom"));
+        canvas.addView(outfitRow(outfit.shoes, "Shoes"));
+        canvas.addView(outfitRow(outfit.extra, "Weather extra"));
         page.addView(canvas);
 
         page.addView(section("Why it works"));
-        page.addView(insight("Balanced contrast", "The navy jacket anchors the look while beige and white keep it relaxed."));
+        page.addView(insight(outfit.weatherLabel + " styling", outfit.reason));
+        page.addView(insight("Smart next buy", outfit.shoppingTip));
     }
 
     private void shop() {
@@ -1018,12 +1025,51 @@ public class MainActivity extends Activity {
         return wrap;
     }
 
+    private LinearLayout weatherSelector() {
+        String[] labels = {"Rainy", "Mild", "Hot", "Cold", "Windy"};
+        HorizontalScrollView scroll = new HorizontalScrollView(this);
+        scroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        for (int i = 0; i < labels.length; i++) {
+            final int index = i;
+            boolean selected = selectedWeatherIndex == i;
+            TextView chip = label(labels[i], 14, selected ? Color.WHITE : INK, true);
+            chip.setGravity(Gravity.CENTER);
+            chip.setPadding(dp(16), dp(8), dp(16), dp(8));
+            chip.setBackground(round(selected ? BLUE : SURFACE, 22, selected ? BLUE : LINE));
+            chip.setOnClickListener(v -> {
+                selectedWeatherIndex = index;
+                renderTab(2);
+            });
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, -2);
+            params.setMargins(0, 0, dp(9), dp(8));
+            row.addView(chip, params);
+        }
+        scroll.addView(row);
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.addView(scroll);
+        return wrap;
+    }
+
+    private WeatherOutfit currentWeatherOutfit() {
+        WeatherOutfit[] options = new WeatherOutfit[]{
+                new WeatherOutfit("Rainy", "14 C", "Water-resistant trench, knit top, dark chinos, waterproof sneakers, compact umbrella.", "Water-resistant trench", "Fine knit top", "Dark chinos", "Waterproof sneakers", "Compact umbrella", "Rain protection is prioritized while keeping the silhouette clean and smart casual.", "A lightweight waterproof trench would make rainy-day outfits much easier."),
+                new WeatherOutfit("Mild", "19 C", "Navy overshirt, white tee, beige trousers, white sneakers, brown belt.", "Navy overshirt", "White tee", "Beige trousers", "White sneakers", "Brown belt", "Light layers work well because the temperature is comfortable and flexible through the day.", "A white overshirt would unlock more mild-weather combinations."),
+                new WeatherOutfit("Hot", "29 C", "Linen shirt, breathable tee, light shorts, canvas sneakers, sunglasses.", "Linen shirt", "Breathable tee", "Light shorts", "Canvas sneakers", "Sunglasses", "Breathable fabrics and lighter colors reduce heat while keeping the look polished.", "Add linen or cotton pieces for hot days and summer travel."),
+                new WeatherOutfit("Cold", "6 C", "Wool coat, thermal layer, dark denim, leather boots, scarf.", "Wool coat", "Thermal layer", "Dark denim", "Leather boots", "Scarf", "Warm layers and closed shoes protect against low temperature without losing structure.", "A neutral wool coat would improve winter outfit quality."),
+                new WeatherOutfit("Windy", "17 C", "Zip jacket, structured tee, straight trousers, stable sneakers, cap.", "Zip jacket", "Structured tee", "Straight trousers", "Stable sneakers", "Cap", "A secure outer layer and stable shoes handle wind better than loose light layers.", "A wind-resistant zip jacket would fill an important wardrobe gap.")
+        };
+        int index = Math.max(0, Math.min(selectedWeatherIndex, options.length - 1));
+        return options[index];
+    }
+
     private LinearLayout outfitPreview() {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         int[] colors = {Color.rgb(38, 57, 79), Color.rgb(246, 243, 236), Color.rgb(201, 176, 138), Color.rgb(248, 247, 243)};
         for (int color : colors) {
-            TextView tile = label("●", 32, readable(color), true);
+            TextView tile = label("o", 32, readable(color), true);
             tile.setGravity(Gravity.CENTER);
             tile.setBackground(round(color, 8, Color.argb(70, 255, 255, 255)));
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(86), 1);
@@ -1075,7 +1121,7 @@ public class MainActivity extends Activity {
 
     private LinearLayout clothingCard(String name, String meta, int color) {
         LinearLayout card = panel(SURFACE);
-        TextView block = label("●", 38, readable(color), true);
+        TextView block = label("o", 38, readable(color), true);
         block.setGravity(Gravity.CENTER);
         block.setBackground(round(color, 14, color));
         card.addView(block, new LinearLayout.LayoutParams(-1, itemImageHeight()));
@@ -1125,7 +1171,7 @@ public class MainActivity extends Activity {
     private LinearLayout product(String title, String reason, String price, int color) {
         LinearLayout card = panel(SURFACE);
         card.setOrientation(LinearLayout.HORIZONTAL);
-        TextView image = label("●", 34, readable(color), true);
+        TextView image = label("o", 34, readable(color), true);
         image.setGravity(Gravity.CENTER);
         image.setBackground(round(color, 8, color));
         card.addView(image, new LinearLayout.LayoutParams(dp(72), dp(88)));
@@ -1218,6 +1264,31 @@ public class MainActivity extends Activity {
         return (screenWidth() - dp(50)) / 2;
     }
 
+    private static class WeatherOutfit {
+        final String weatherLabel;
+        final String temperature;
+        final String summary;
+        final String outerwear;
+        final String top;
+        final String bottom;
+        final String shoes;
+        final String extra;
+        final String reason;
+        final String shoppingTip;
+
+        WeatherOutfit(String weatherLabel, String temperature, String summary, String outerwear, String top, String bottom, String shoes, String extra, String reason, String shoppingTip) {
+            this.weatherLabel = weatherLabel;
+            this.temperature = temperature;
+            this.summary = summary;
+            this.outerwear = outerwear;
+            this.top = top;
+            this.bottom = bottom;
+            this.shoes = shoes;
+            this.extra = extra;
+            this.reason = reason;
+            this.shoppingTip = shoppingTip;
+        }
+    }
     private static class ExtractionResult {
         final Bitmap bitmap;
         final String itemName;
@@ -1254,3 +1325,4 @@ public class MainActivity extends Activity {
         }
     }
 }
+
