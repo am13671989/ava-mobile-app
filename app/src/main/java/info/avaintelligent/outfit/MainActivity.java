@@ -102,7 +102,6 @@ public class MainActivity extends Activity {
             getWindow().setNavigationBarColor(SURFACE);
         }
         showOnboarding();
-        requestLocationWeather();
     }
 
     private void requestLocationWeather() {
@@ -246,7 +245,7 @@ public class MainActivity extends Activity {
 
         page.addView(section("Please select one of these avatars that fits your body"));
         page.addView(avatarSelector(false));
-        page.addView(personPhotoPanel(currentWeatherOutfit()));
+        page.addView(onboardingPhotoPanel());
 
         Button next = button("Next", FOREST, Color.WHITE);
         next.setOnClickListener(v -> {
@@ -263,6 +262,32 @@ public class MainActivity extends Activity {
         page.addView(next, new LinearLayout.LayoutParams(-1, dp(54)));
 
         setContentView(root);
+    }
+    private LinearLayout onboardingPhotoPanel() {
+        LinearLayout card = panel(SURFACE);
+        card.addView(label("Optional: upload your photo", 18, INK, true));
+        card.addView(label("You can add your own photo now, or continue with the selected avatar.", 14, MUTED, false));
+        card.addView(spacer(10));
+        if (personPhoto != null) {
+            ImageView image = new ImageView(this);
+            image.setImageBitmap(personPhoto);
+            image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            image.setBackground(round(BLUSH, 14, LINE));
+            card.addView(image, new LinearLayout.LayoutParams(-1, dp(220)));
+            card.addView(spacer(10));
+        }
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        Button camera = button("Take Photo", FOREST, Color.WHITE);
+        camera.setOnClickListener(v -> openPersonCamera());
+        Button gallery = button("Upload Photo", SURFACE, FOREST);
+        gallery.setOnClickListener(v -> openPersonGallery());
+        LinearLayout.LayoutParams left = new LinearLayout.LayoutParams(0, dp(48), 1);
+        left.setMargins(0, 0, dp(10), 0);
+        actions.addView(camera, left);
+        actions.addView(gallery, new LinearLayout.LayoutParams(0, dp(48), 1));
+        card.addView(actions);
+        return card;
     }
     private void showApp() {
         root = new LinearLayout(this);
