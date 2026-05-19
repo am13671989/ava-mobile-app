@@ -58,6 +58,8 @@ public class MainActivity extends Activity {
     private static final int REQUEST_CAMERA = 10;
     private static final int REQUEST_GALLERY = 11;
     private static final int REQUEST_LOCATION = 12;
+    private static final int REQUEST_PERSON_CAMERA = 13;
+    private static final int REQUEST_PERSON_GALLERY = 14;
 
     private static final int CANVAS = Color.rgb(245, 241, 234);
     private static final int SURFACE = Color.rgb(255, 252, 247);
@@ -75,6 +77,7 @@ public class MainActivity extends Activity {
     private LinearLayout nav;
     private int selectedTab = 0;
     private Bitmap selectedImage;
+    private Bitmap personPhoto;
     private Bitmap extractedClothingImage;
     private String extractedClothingName = "Clothing Item";
     private String lastAiResult = "No clothing image selected yet.";
@@ -82,6 +85,7 @@ public class MainActivity extends Activity {
     private boolean analysisInProgress;
     private int selectedWeatherIndex = 1;
     private int selectedOccasionIndex = 0;
+    private int selectedAvatarIndex = 0;
     private WeatherOutfit liveWeatherOutfit;
     private String weatherStatus = "Using demo weather until location is available.";
     private boolean weatherLoading;
@@ -365,11 +369,11 @@ public class MainActivity extends Activity {
         }
 
         Bitmap bitmap = null;
-        if (requestCode == REQUEST_CAMERA && data.getExtras() != null) {
+        if ((requestCode == REQUEST_CAMERA || requestCode == REQUEST_PERSON_CAMERA) && data.getExtras() != null) {
             bitmap = (Bitmap) data.getExtras().get("data");
         }
 
-        if (requestCode == REQUEST_GALLERY) {
+        if (requestCode == REQUEST_GALLERY || requestCode == REQUEST_PERSON_GALLERY) {
             Uri imageUri = data.getData();
             if (imageUri != null) {
                 try {
@@ -378,6 +382,13 @@ public class MainActivity extends Activity {
                     Toast.makeText(this, "Could not load selected image.", Toast.LENGTH_SHORT).show();
                 }
             }
+        }
+
+        if (bitmap != null && (requestCode == REQUEST_PERSON_CAMERA || requestCode == REQUEST_PERSON_GALLERY)) {
+            personPhoto = bitmap;
+            Toast.makeText(this, "Photo added for outfit preview", Toast.LENGTH_SHORT).show();
+            renderTab(0);
+            return;
         }
 
         if (bitmap != null) {
@@ -1146,6 +1157,112 @@ public class MainActivity extends Activity {
         return wrap;
     }
 
+    private LinearLayout avatarSelector() {
+        String[] avatars = {"A", "B", "C", "D"};
+        int[] colors = {Color.rgb(38, 57, 79), Color.rgb(201, 176, 138), Color.rgb(109, 75, 60), Color.rgb(88, 109, 140)};
+        HorizontalScrollView scroll = new HorizontalScrollView(this);
+        scroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        for (int i = 0; i < avatars.length; i++) {
+            final int index = i;
+            LinearLayout card = panel(selectedAvatarIndex == i ? MIST : SURFACE);
+            card.setGravity(Gravity.CENTER);
+            TextView body = label(avatars[i], 26, readable(colors[i]), true);
+            body.setGravity(Gravity.CENTER);
+            body.setBackground(round(colors[i], 18, selectedAvatarIndex == i ? FOREST : LINE));
+            card.addView(body, new LinearLayout.LayoutParams(dp(74), dp(94)));
+            card.addView(label(index == 0 ? "Classic" : index == 1 ? "Warm" : index == 2 ? "Urban" : "Modern", 13, INK, true));
+            card.setOnClickListener(v -> {
+                selectedAvatarIndex = index;
+                personPhoto = null;
+                renderTab(0);
+            });
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(112), dp(146));
+            params.setMargins(0, 0, dp(10), dp(8));
+            row.addView(card, params);
+        }
+        scroll.addView(row);
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.addView(scroll);
+        return wrap;
+    }
+
+    private LinearLayout personPhotoPanel(WeatherOutfit outfit) {
+        LinearLayout card = panel(SURFACE);
+        card.addView(label("Use your photo", 18, INK, true));
+        card.addView(label("Upload a full-body photo to preview the recommended look on your own image.", 14, MUTED, false));
+        card.addView(spacer(10));
+        if (personPhoto != null) {
+            card.addView(personPhotoPreview(outfit));
+            card.addView(spacer(10));
+        }
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        Button camera = button("Take Photo", FOREST, Color.WHITE);
+        camera.setOnClickListener(v -> openPersonCamera());
+        Button gallery = button("Upload Photo", SURFACE, FOREST);
+        gallery.setOnClickListener(v -> openPersonGallery());
+        LinearLayout.LayoutParams left = new LinearLayout.LayoutParams(0, dp(48), 1);
+        left.setMargins(0, 0, dp(10), 0);
+        actions.addView(camera, left);
+        actions.addView(gallery, new LinearLayout.LayoutParams(0, dp(48), 1));
+        card.addView(actions);
+        card.addView(spacer(10));
+        card.addView(label("Best clothes: " + outfit.summary, 14, FOREST, true));
+        return card;
+    }
+
+    private void openPersonCamera() {
+        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        try {
+            startActivityForResult(intent, REQUEST_PERSON_CAMERA);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "Camera app not found.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void openPersonGallery() {
+        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        try {
+            startActivityForResult(intent, REQUEST_PERSON_GALLERY);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "Gallery app not found.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private LinearLayout personLookPreview(WeatherOutfit outfit) {
+        if (personPhoto != null) {
+            return personPhotoPreview(outfit);
+        }
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        int[] avatarColors = {Color.rgb(38, 57, 79), Color.rgb(201, 176, 138), Color.rgb(109, 75, 60), Color.rgb(88, 109, 140)};
+        int avatarColor = avatarColors[Math.max(0, Math.min(selectedAvatarIndex, avatarColors.length - 1))];
+        TextView avatar = label("AV", 20, readable(avatarColor), true);
+        avatar.setGravity(Gravity.CENTER);
+        avatar.setBackground(round(avatarColor, 14, avatarColor));
+        row.addView(avatar, new LinearLayout.LayoutParams(dp(92), dp(116)));
+        LinearLayout outfitColors = outfitPreview();
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(116), 1);
+        params.setMargins(dp(10), 0, 0, 0);
+        row.addView(outfitColors, params);
+        return row;
+    }
+
+    private LinearLayout personPhotoPreview(WeatherOutfit outfit) {
+        LinearLayout frame = new LinearLayout(this);
+        frame.setOrientation(LinearLayout.VERTICAL);
+        frame.setPadding(dp(10), dp(10), dp(10), dp(10));
+        frame.setBackground(round(BLUSH, 16, LINE));
+        ImageView image = new ImageView(this);
+        image.setImageBitmap(personPhoto);
+        image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        frame.addView(image, new LinearLayout.LayoutParams(-1, dp(240)));
+        frame.addView(spacer(8));
+        frame.addView(label("Best look for this photo: " + outfit.outerwear + ", " + outfit.top + ", " + outfit.bottom + ", " + outfit.shoes, 14, INK, true));
+        return frame;
+    }
     private LinearLayout occasionSelector() {
         String[] labels = {"Casual", "Office", "Party", "Date", "Travel", "Classic"};
         HorizontalScrollView scroll = new HorizontalScrollView(this);
