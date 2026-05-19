@@ -258,11 +258,15 @@ public class MainActivity extends Activity {
         hero.addView(label(currentOccasionLabel() + " Smart Set", 27, Color.WHITE, true));
         hero.addView(label(outfit.summary, 15, Color.WHITE, false));
         hero.addView(spacer(16));
-        hero.addView(outfitPreview());
+        hero.addView(personLookPreview(outfit));
         hero.addView(spacer(14));
         Button wear = button("Wear This", Color.WHITE, FOREST);
         hero.addView(wear, new LinearLayout.LayoutParams(-1, dp(48)));
         page.addView(hero);
+
+        page.addView(section("Your Avatar"));
+        page.addView(avatarSelector());
+        page.addView(personPhotoPanel(outfit));
 
         page.addView(section("Occasion"));
         page.addView(occasionSelector());
