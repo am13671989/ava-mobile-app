@@ -87,11 +87,15 @@ public class MainActivity extends Activity {
     private int selectedWeatherIndex = 1;
     private int selectedOccasionIndex = 0;
     private int selectedAvatarIndex = 0;
+    private int selectedSexIndex = 0;
+    private int selectedStyleIndex = 0;
     private boolean onboardingComplete;
     private String userAge = "";
     private WeatherOutfit liveWeatherOutfit;
     private String weatherStatus = "Using demo weather until location is available.";
     private boolean weatherLoading;
+    private final String[] sexOptions = {"Woman", "Man"};
+    private final String[] styleOptions = {"Classic", "Warm", "Sport", "Elegant", "Street", "Minimal"};
     private final ArrayList<SavedClothingItem> savedClothingItems = new ArrayList<>();
 
     @Override
@@ -228,7 +232,7 @@ public class MainActivity extends Activity {
         page.addView(brandLogo());
         page.addView(spacer(14));
         page.addView(label("Create Your Style Profile", 28, INK, true));
-        page.addView(label("Enter your age, then select one avatar that best fits your body. You can also upload your own photo.", 15, MUTED, false));
+        page.addView(label("Enter your age, choose your sex, select the avatar that best fits your body, and tell AVA the style you like.", 15, MUTED, false));
         page.addView(spacer(18));
 
         LinearLayout ageCard = panel(SURFACE);
@@ -245,8 +249,15 @@ public class MainActivity extends Activity {
         ageCard.addView(ageInput, new LinearLayout.LayoutParams(-1, dp(52)));
         page.addView(ageCard);
 
-        page.addView(section("Please select one of these avatars that fits your body"));
+        page.addView(section("Sex"));
+        page.addView(sexSelector());
+
+        page.addView(section("Please select one " + currentSexLabel().toLowerCase(Locale.US) + " avatar that fits your body"));
         page.addView(avatarSelector(false));
+
+        page.addView(section("Style you like to wear"));
+        page.addView(styleSelector());
+
         page.addView(onboardingPhotoPanel());
 
         Button next = button("Next", FOREST, Color.WHITE);
@@ -347,7 +358,7 @@ public class MainActivity extends Activity {
         WeatherOutfit outfit = occasionAdjustedOutfit();
         LinearLayout page = page("Today", "Your AI stylist picked a weather-aware look.");
         LinearLayout hero = panel(FOREST);
-        hero.addView(label(outfit.weatherLabel + "  |  " + outfit.temperature + "  |  Casual Friday", 14, Color.WHITE, false));
+        hero.addView(label(outfit.weatherLabel + "  |  " + outfit.temperature + "  |  " + currentStyleLabel() + " style", 14, Color.WHITE, false));
         hero.addView(spacer(14));
         hero.addView(label(currentOccasionLabel() + " Smart Set", 27, Color.WHITE, true));
         hero.addView(label(outfit.summary, 15, Color.WHITE, false));
@@ -1112,12 +1123,12 @@ public class MainActivity extends Activity {
     }
 
     private void profile() {
-        LinearLayout page = page("Style DNA", "Minimalist, smart casual, warm neutral palette.");
+        LinearLayout page = page("Style DNA", currentSexLabel() + " profile, age " + (userAge.isEmpty() ? "not set" : userAge) + ", " + currentStyleLabel().toLowerCase(Locale.US) + " style.");
         LinearLayout score = panel(SURFACE);
         score.addView(label("Style identity", 20, INK, true));
-        score.addView(scoreBar("Minimalist", 72, FOREST));
-        score.addView(scoreBar("Smart casual", 65, BLUE));
-        score.addView(scoreBar("Urban", 48, CLAY));
+        score.addView(scoreBar(currentStyleLabel(), 78, FOREST));
+        score.addView(scoreBar("Weather-aware", 68, BLUE));
+        score.addView(scoreBar("Wardrobe match", 52, CLAY));
         page.addView(score);
 
         page.addView(section("Color Profile"));
@@ -1130,10 +1141,12 @@ public class MainActivity extends Activity {
         page.addView(palette);
 
         page.addView(section("Preferences"));
-        page.addView(pref("Fit", "Relaxed slim"));
-        page.addView(pref("Avoid", "Neon colors"));
+        page.addView(pref("Sex", currentSexLabel()));
+        page.addView(pref("Age", userAge.isEmpty() ? "Not set" : userAge));
+        page.addView(pref("Avatar", currentSexLabel() + " " + (selectedAvatarIndex + 1)));
+        page.addView(pref("Preferred style", currentStyleLabel()));
+        page.addView(pref("Preview source", personPhoto == null ? "Selected avatar" : "Uploaded photo"));
         page.addView(pref("Budget", "Mid-range"));
-        page.addView(pref("Brands", "Uniqlo, Zara, COS"));
     }
 
     private LinearLayout page(String title, String subtitle) {
@@ -1260,8 +1273,7 @@ public class MainActivity extends Activity {
     }
 
     private LinearLayout avatarSelector(boolean returnHomeOnSelect) {
-        String[] avatars = {"A", "B", "C", "D"};
-        int[] colors = {Color.rgb(38, 57, 79), Color.rgb(201, 176, 138), Color.rgb(109, 75, 60), Color.rgb(88, 109, 140)};
+        int[] avatars = currentAvatarResources();
         HorizontalScrollView scroll = new HorizontalScrollView(this);
         scroll.setHorizontalScrollBarEnabled(false);
         LinearLayout row = new LinearLayout(this);
@@ -1270,17 +1282,24 @@ public class MainActivity extends Activity {
             final int index = i;
             LinearLayout card = panel(selectedAvatarIndex == i ? MIST : SURFACE);
             card.setGravity(Gravity.CENTER);
-            TextView body = label(avatars[i], 26, readable(colors[i]), true);
-            body.setGravity(Gravity.CENTER);
-            body.setBackground(round(colors[i], 18, selectedAvatarIndex == i ? FOREST : LINE));
-            card.addView(body, new LinearLayout.LayoutParams(dp(74), dp(94)));
-            card.addView(label(index == 0 ? "Classic" : index == 1 ? "Warm" : index == 2 ? "Urban" : "Modern", 13, INK, true));
+            ImageView avatar = new ImageView(this);
+            avatar.setImageResource(avatars[i]);
+            avatar.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            avatar.setAdjustViewBounds(true);
+            avatar.setBackground(round(BLUSH, 16, selectedAvatarIndex == i ? FOREST : LINE));
+            avatar.setPadding(dp(6), dp(6), dp(6), dp(6));
+            card.addView(avatar, new LinearLayout.LayoutParams(dp(96), dp(140)));
+            card.addView(label(currentSexLabel() + " " + (index + 1), 13, INK, true));
             card.setOnClickListener(v -> {
                 selectedAvatarIndex = index;
                 personPhoto = null;
-                renderTab(0);
+                if (returnHomeOnSelect && onboardingComplete) {
+                    renderTab(0);
+                } else {
+                    showOnboarding();
+                }
             });
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(112), dp(146));
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(128), dp(196));
             params.setMargins(0, 0, dp(10), dp(8));
             row.addView(card, params);
         }
@@ -1288,6 +1307,109 @@ public class MainActivity extends Activity {
         LinearLayout wrap = new LinearLayout(this);
         wrap.addView(scroll);
         return wrap;
+    }
+
+    private LinearLayout sexSelector() {
+        HorizontalScrollView scroll = new HorizontalScrollView(this);
+        scroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        for (int i = 0; i < sexOptions.length; i++) {
+            final int index = i;
+            boolean selected = selectedSexIndex == i;
+            TextView chip = label(sexOptions[i], 15, selected ? Color.WHITE : INK, true);
+            chip.setGravity(Gravity.CENTER);
+            chip.setPadding(dp(18), dp(10), dp(18), dp(10));
+            chip.setBackground(round(selected ? FOREST : SURFACE, 24, selected ? FOREST : LINE));
+            chip.setOnClickListener(v -> {
+                selectedSexIndex = index;
+                selectedAvatarIndex = 0;
+                personPhoto = null;
+                if (onboardingComplete) {
+                    renderTab(selectedTab);
+                } else {
+                    showOnboarding();
+                }
+            });
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, -2);
+            params.setMargins(0, 0, dp(10), dp(8));
+            row.addView(chip, params);
+        }
+        scroll.addView(row);
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.addView(scroll);
+        return wrap;
+    }
+
+    private LinearLayout styleSelector() {
+        HorizontalScrollView scroll = new HorizontalScrollView(this);
+        scroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        for (int i = 0; i < styleOptions.length; i++) {
+            final int index = i;
+            boolean selected = selectedStyleIndex == i;
+            TextView chip = label(styleOptions[i], 15, selected ? Color.WHITE : INK, true);
+            chip.setGravity(Gravity.CENTER);
+            chip.setPadding(dp(18), dp(10), dp(18), dp(10));
+            chip.setBackground(round(selected ? CLAY : SURFACE, 24, selected ? CLAY : LINE));
+            chip.setOnClickListener(v -> {
+                selectedStyleIndex = index;
+                if (onboardingComplete) {
+                    renderTab(selectedTab);
+                } else {
+                    showOnboarding();
+                }
+            });
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, -2);
+            params.setMargins(0, 0, dp(10), dp(8));
+            row.addView(chip, params);
+        }
+        scroll.addView(row);
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.addView(scroll);
+        return wrap;
+    }
+
+    private int[] currentAvatarResources() {
+        if (selectedSexIndex == 1) {
+            return new int[]{
+                    R.drawable.man_avatar_1,
+                    R.drawable.man_avatar_2,
+                    R.drawable.man_avatar_3,
+                    R.drawable.man_avatar_4,
+                    R.drawable.man_avatar_5,
+                    R.drawable.man_avatar_6,
+                    R.drawable.man_avatar_7,
+                    R.drawable.man_avatar_8,
+                    R.drawable.man_avatar_9
+            };
+        }
+        return new int[]{
+                R.drawable.woman_avatar_1,
+                R.drawable.woman_avatar_2,
+                R.drawable.woman_avatar_3,
+                R.drawable.woman_avatar_4,
+                R.drawable.woman_avatar_5,
+                R.drawable.woman_avatar_6,
+                R.drawable.woman_avatar_7,
+                R.drawable.woman_avatar_8,
+                R.drawable.woman_avatar_9
+        };
+    }
+
+    private int currentAvatarResource() {
+        int[] avatars = currentAvatarResources();
+        int index = Math.max(0, Math.min(selectedAvatarIndex, avatars.length - 1));
+        return avatars[index];
+    }
+
+    private String currentSexLabel() {
+        return sexOptions[Math.max(0, Math.min(selectedSexIndex, sexOptions.length - 1))];
+    }
+
+    private String currentStyleLabel() {
+        return styleOptions[Math.max(0, Math.min(selectedStyleIndex, styleOptions.length - 1))];
     }
 
     private LinearLayout personPhotoPanel(WeatherOutfit outfit) {
@@ -1339,14 +1461,15 @@ public class MainActivity extends Activity {
         }
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        int[] avatarColors = {Color.rgb(38, 57, 79), Color.rgb(201, 176, 138), Color.rgb(109, 75, 60), Color.rgb(88, 109, 140)};
-        int avatarColor = avatarColors[Math.max(0, Math.min(selectedAvatarIndex, avatarColors.length - 1))];
-        TextView avatar = label("AV", 20, readable(avatarColor), true);
-        avatar.setGravity(Gravity.CENTER);
-        avatar.setBackground(round(avatarColor, 14, avatarColor));
-        row.addView(avatar, new LinearLayout.LayoutParams(dp(92), dp(116)));
+        ImageView avatar = new ImageView(this);
+        avatar.setImageResource(currentAvatarResource());
+        avatar.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        avatar.setAdjustViewBounds(true);
+        avatar.setBackground(round(BLUSH, 14, LINE));
+        avatar.setPadding(dp(6), dp(6), dp(6), dp(6));
+        row.addView(avatar, new LinearLayout.LayoutParams(dp(100), dp(140)));
         LinearLayout outfitColors = outfitPreview();
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(116), 1);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(140), 1);
         params.setMargins(dp(10), 0, 0, 0);
         row.addView(outfitColors, params);
         return row;
