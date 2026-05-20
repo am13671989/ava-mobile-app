@@ -225,6 +225,8 @@ public class MainActivity extends Activity {
         scroll.addView(page);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
 
+        page.addView(brandLogo());
+        page.addView(spacer(14));
         page.addView(label("Create Your Style Profile", 28, INK, true));
         page.addView(label("Enter your age, then select one avatar that best fits your body. You can also upload your own photo.", 15, MUTED, false));
         page.addView(spacer(18));
@@ -263,6 +265,20 @@ public class MainActivity extends Activity {
 
         setContentView(root);
     }
+
+    private ImageView brandLogo() {
+        ImageView logo = new ImageView(this);
+        logo.setImageResource(R.drawable.outfit_logo);
+        logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        logo.setAdjustViewBounds(true);
+        logo.setBackground(round(SURFACE, 18, LINE));
+        logo.setPadding(dp(12), dp(12), dp(12), dp(12));
+        logo.setContentDescription("Outfit Style Suggestion by AVA logo");
+        logo.setElevation(dp(2));
+        logo.setLayoutParams(new LinearLayout.LayoutParams(-1, dp(210)));
+        return logo;
+    }
+
     private LinearLayout onboardingPhotoPanel() {
         LinearLayout card = panel(SURFACE);
         card.addView(label("Optional: upload your photo", 18, INK, true));
