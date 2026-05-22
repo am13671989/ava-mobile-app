@@ -268,7 +268,7 @@ public class MainActivity extends Activity {
 
         page.addView(onboardingPhotoPanel());
 
-        Button next = button("Next", FOREST, Color.WHITE);
+        Button next = button(onboardingComplete ? "Save Profile" : "Next", FOREST, Color.WHITE);
         next.setOnClickListener(v -> {
             userAge = ageInput.getText().toString().trim();
             if (userAge.isEmpty()) {
@@ -281,6 +281,12 @@ public class MainActivity extends Activity {
         });
         page.addView(spacer(14));
         page.addView(next, new LinearLayout.LayoutParams(-1, dp(54)));
+        if (onboardingComplete) {
+            Button back = button("Back to App", SURFACE, FOREST);
+            back.setOnClickListener(v -> showApp());
+            page.addView(spacer(10));
+            page.addView(back, new LinearLayout.LayoutParams(-1, dp(52)));
+        }
 
         setContentView(root);
     }
@@ -1248,6 +1254,11 @@ public class MainActivity extends Activity {
         page.addView(pref("Preferred style", currentStyleLabel()));
         page.addView(pref("Preview source", personPhoto == null ? "Selected avatar" : "Uploaded photo"));
         page.addView(pref("Budget", "Mid-range"));
+
+        Button editProfile = button("Edit Style Profile", FOREST, Color.WHITE);
+        editProfile.setOnClickListener(v -> showOnboarding());
+        page.addView(spacer(14));
+        page.addView(editProfile, new LinearLayout.LayoutParams(-1, dp(54)));
     }
 
     private LinearLayout page(String title, String subtitle) {
