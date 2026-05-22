@@ -133,18 +133,25 @@ def try_on(request: TryOnRequest):
         if result is not None:
             return result
 
+    replicate_token_present = bool(os.getenv("REPLICATE_API_TOKEN", "").strip())
     replicate_result = call_replicate_vton(person, outfit, request, model)
     if replicate_result is not None:
         return replicate_result
 
     demo = compose_reference_try_on_demo(person, outfit, request, model)
-    return TryOnResponse(
-        image_base64=encode_png(demo),
-        message=(
+    message = (
+        "Replicate VTON call failed. Check REPLICATE_API_TOKEN, account billing, and model availability. "
+        "This response is a reference-set demo."
+        if replicate_token_present
+        else (
             f"{model} endpoint contract is ready. Set VTON_SERVICE_URL to a GPU service "
             "running IDM-VTON, OOTDiffusion, VITON-HD, StableVITON, or HR-VITON for real try-on. "
             "This response is a reference-set demo."
-        ),
+        )
+    )
+    return TryOnResponse(
+        image_base64=encode_png(demo),
+        message=message,
         model=model,
         source="reference-demo",
     )
@@ -280,15 +287,15 @@ def call_replicate_vton(person: Image.Image, outfit: Image.Image, request: TryOn
     # version id if you later choose another hosted VTON model.
     version = os.getenv(
         "REPLICATE_VTON_VERSION",
-        "a02617fd541ad4b70c1db7e476a43bb23439316e0b03004309e8d1070a8b1f24",
+        "a02643ce418c0e12bad371c4adbfaec0dd1cb34b034ef37650ef205f92ad6199",
     ).strip()
     garment_part = replicate_garment_part(request)
     payload = {
         "version": version,
         "input": {
-            "person_image": image_data_uri(person),
-            "garment_image": image_data_uri(outfit),
-            "garment_part": garment_part,
+            "image": image_data_uri(person),
+            "garment": image_data_uri(outfit),
+            "part": garment_part,
         },
     }
 
@@ -318,8 +325,28 @@ def call_replicate_vton(person: Image.Image, outfit: Image.Image, request: TryOn
             model=model,
             source="replicate",
         )
+    except requests.HTTPError as error:
+        detail = replicate_error_detail(error)
+        demo = compose_reference_try_on_demo(person, outfit, request, model)
+        return TryOnResponse(
+            image_base64=encode_png(demo),
+            message=f"Replicate VTON failed: {detail}. This response is a reference-set demo.",
+            model=model,
+            source="reference-demo",
+        )
     except Exception:
         return None
+
+
+def replicate_error_detail(error: requests.HTTPError) -> str:
+    response = error.response
+    if response is None:
+        return error.__class__.__name__
+    try:
+        data = response.json()
+        return data.get("detail") or data.get("title") or response.text[:240]
+    except Exception:
+        return response.text[:240] or f"HTTP {response.status_code}"
 
 
 def wait_for_replicate_prediction(prediction: dict, token: str) -> dict:
