@@ -96,8 +96,14 @@ public class MainActivity extends Activity {
     private WeatherOutfit liveWeatherOutfit;
     private String weatherStatus = "Using demo weather until location is available.";
     private boolean weatherLoading;
+    private Bitmap virtualTryOnBitmap;
+    private boolean virtualTryOnLoading;
+    private String virtualTryOnStatus = "Choose a model, then generate AI virtual try-on.";
+    private String virtualTryOnKey = "";
+    private int selectedVtonModelIndex = 0;
     private final String[] sexOptions = {"Woman", "Man"};
     private final String[] styleOptions = {"Classic", "Warm", "Sport", "Elegant", "Street", "Minimal"};
+    private final String[] vtonModelOptions = {"IDM-VTON", "OOTDiffusion", "VITON-HD", "StableVITON", "HR-VITON"};
     private final ArrayList<SavedClothingItem> savedClothingItems = new ArrayList<>();
 
     @Override
@@ -493,6 +499,7 @@ public class MainActivity extends Activity {
 
         if (bitmap != null && (requestCode == REQUEST_PERSON_CAMERA || requestCode == REQUEST_PERSON_GALLERY)) {
             personPhoto = bitmap;
+            resetVirtualTryOn("Photo changed. Generate a new AI try-on.");
             Toast.makeText(this, "Photo added for outfit preview", Toast.LENGTH_SHORT).show();
             if (onboardingComplete) {
                 renderTab(0);
@@ -548,6 +555,98 @@ public class MainActivity extends Activity {
                 renderTab(1);
             });
         }).start();
+    }
+
+    private void requestVirtualTryOn(OutfitRecommendation recommendation) {
+        if (virtualTryOnLoading) return;
+        virtualTryOnLoading = true;
+        virtualTryOnStatus = hasBackendUrl()
+                ? "Sending avatar/photo and outfit set to " + currentVtonModel() + " backend..."
+                : "Backend URL is not configured. Showing reference-set demo only.";
+        renderTab(0);
+        new Thread(() -> {
+            TryOnResult result = hasBackendUrl()
+                    ? virtualTryOnWithBackend(recommendation)
+                    : localReferenceTryOnDemo(recommendation);
+            runOnUiThread(() -> {
+                virtualTryOnLoading = false;
+                virtualTryOnBitmap = result.bitmap;
+                virtualTryOnKey = currentTryOnKey(recommendation);
+                virtualTryOnStatus = result.message;
+                renderTab(0);
+            });
+        }).start();
+    }
+
+    private TryOnResult virtualTryOnWithBackend(OutfitRecommendation recommendation) {
+        HttpURLConnection connection = null;
+        try {
+            String baseUrl = BuildConfig.WARDROBE_BACKEND_BASE_URL.trim();
+            if (baseUrl.endsWith("/")) {
+                baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+            }
+            URL url = new URL(baseUrl + "/try-on");
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setConnectTimeout(30000);
+            connection.setReadTimeout(180000);
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Content-Type", "application/json");
+
+            Bitmap person = personPhoto != null
+                    ? personPhoto
+                    : BitmapFactory.decodeResource(getResources(), currentAvatarResource());
+            Bitmap outfitSet = BitmapFactory.decodeResource(getResources(), sampleOutfitSetResource(recommendation));
+
+            JSONObject request = new JSONObject();
+            request.put("person_image_base64", encodeBitmap(person));
+            request.put("outfit_image_base64", encodeBitmap(outfitSet));
+            request.put("model", currentVtonModel());
+            request.put("sex", currentSexLabel());
+            request.put("occasion", currentOccasionLabel());
+            request.put("style", currentStyleLabel());
+            request.put("prompt", recommendation.summary);
+
+            OutputStream outputStream = connection.getOutputStream();
+            outputStream.write(request.toString().getBytes());
+            outputStream.flush();
+            outputStream.close();
+
+            int status = connection.getResponseCode();
+            String response = readStream(status >= 200 && status < 300
+                    ? connection.getInputStream()
+                    : connection.getErrorStream());
+            if (status < 200 || status >= 300) {
+                return localReferenceTryOnDemo(recommendation, "Try-on backend failed: " + status + ". Showing reference-set demo.");
+            }
+            JSONObject json = new JSONObject(response);
+            String imageBase64 = json.optString("image_base64", "");
+            if (imageBase64.isEmpty()) {
+                return localReferenceTryOnDemo(recommendation, "Try-on backend returned no image. Showing reference-set demo.");
+            }
+            byte[] bytes = Base64.decode(imageBase64, Base64.DEFAULT);
+            Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+            if (bitmap == null) {
+                return localReferenceTryOnDemo(recommendation, "Try-on backend image decode failed. Showing reference-set demo.");
+            }
+            String message = json.optString("message", currentVtonModel() + " virtual try-on completed.");
+            return new TryOnResult(bitmap, message);
+        } catch (Exception error) {
+            return localReferenceTryOnDemo(recommendation, "Try-on backend error: " + error.getClass().getSimpleName() + ". Showing reference-set demo.");
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+
+    private TryOnResult localReferenceTryOnDemo(OutfitRecommendation recommendation) {
+        return localReferenceTryOnDemo(recommendation, "Connect a GPU backend to run " + currentVtonModel() + ". This local view uses the selected reference outfit set.");
+    }
+
+    private TryOnResult localReferenceTryOnDemo(OutfitRecommendation recommendation, String message) {
+        Bitmap bitmap = BitmapFactory.decodeResource(getResources(), sampleOutfitSetResource(recommendation));
+        return new TryOnResult(bitmap, message);
     }
 
     private boolean hasGoogleCloudVisionKey() {
@@ -1295,6 +1394,7 @@ public class MainActivity extends Activity {
             card.setOnClickListener(v -> {
                 selectedAvatarIndex = index;
                 personPhoto = null;
+                resetVirtualTryOn("Avatar changed. Generate a new AI try-on.");
                 if (returnHomeOnSelect && onboardingComplete) {
                     renderTab(0);
                 } else {
@@ -1327,6 +1427,7 @@ public class MainActivity extends Activity {
                 selectedSexIndex = index;
                 selectedAvatarIndex = 0;
                 personPhoto = null;
+                resetVirtualTryOn("Sex changed. Generate a new AI try-on.");
                 if (onboardingComplete) {
                     renderTab(selectedTab);
                 } else {
@@ -1357,6 +1458,7 @@ public class MainActivity extends Activity {
             chip.setBackground(round(selected ? CLAY : SURFACE, 24, selected ? CLAY : LINE));
             chip.setOnClickListener(v -> {
                 selectedStyleIndex = index;
+                resetVirtualTryOn("Style changed. Generate a new AI try-on.");
                 if (onboardingComplete) {
                     renderTab(selectedTab);
                 } else {
@@ -1459,22 +1561,59 @@ public class MainActivity extends Activity {
 
     private LinearLayout personLookPreview(WeatherOutfit outfit) {
         OutfitRecommendation recommendation = currentOutfitRecommendation(outfit);
-        if (personPhoto != null) {
-            return personPhotoPreview(outfit, recommendation);
-        }
         LinearLayout preview = new LinearLayout(this);
         preview.setOrientation(LinearLayout.VERTICAL);
         preview.setPadding(dp(10), dp(10), dp(10), dp(10));
         preview.setBackground(round(BLUSH, 16, Color.argb(70, 255, 255, 255)));
 
-        DressedAvatarView avatar = new DressedAvatarView(this, currentAvatarResource(), recommendation);
-        preview.addView(avatar, new LinearLayout.LayoutParams(-1, dp(300)));
+        if (virtualTryOnBitmap != null && virtualTryOnKey.equals(currentTryOnKey(recommendation))) {
+            ImageView result = new ImageView(this);
+            result.setImageBitmap(virtualTryOnBitmap);
+            result.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            result.setAdjustViewBounds(true);
+            result.setBackground(round(SURFACE, 14, LINE));
+            preview.addView(result, new LinearLayout.LayoutParams(-1, dp(320)));
+        } else {
+            preview.addView(tryOnInputPreview(recommendation));
+        }
         preview.addView(spacer(10));
-        preview.addView(label(recommendation.title, 18, INK, true));
-        preview.addView(label(recommendation.reason, 14, MUTED, false));
+        preview.addView(label(recommendation.title + " | " + currentVtonModel(), 18, INK, true));
+        preview.addView(label(virtualTryOnStatus, 14, MUTED, false));
         preview.addView(spacer(10));
         preview.addView(outfitPreview(recommendation));
+        preview.addView(section("Virtual try-on model"));
+        preview.addView(vtonModelSelector());
+        Button generate = button(virtualTryOnLoading ? "Generating..." : "Generate AI Try-On", FOREST, Color.WHITE);
+        generate.setEnabled(!virtualTryOnLoading);
+        generate.setOnClickListener(v -> requestVirtualTryOn(recommendation));
+        preview.addView(spacer(10));
+        preview.addView(generate, new LinearLayout.LayoutParams(-1, dp(52)));
         return preview;
+    }
+
+    private LinearLayout tryOnInputPreview(OutfitRecommendation recommendation) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        ImageView person = new ImageView(this);
+        if (personPhoto != null) {
+            person.setImageBitmap(personPhoto);
+        } else {
+            person.setImageResource(currentAvatarResource());
+        }
+        person.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        person.setBackground(round(SURFACE, 14, LINE));
+        person.setPadding(dp(6), dp(6), dp(6), dp(6));
+        row.addView(person, new LinearLayout.LayoutParams(0, dp(230), 1));
+
+        ImageView outfit = new ImageView(this);
+        outfit.setImageResource(sampleOutfitSetResource(recommendation));
+        outfit.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        outfit.setBackground(round(SURFACE, 14, LINE));
+        outfit.setPadding(dp(6), dp(6), dp(6), dp(6));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(230), 1);
+        params.setMargins(dp(10), 0, 0, 0);
+        row.addView(outfit, params);
+        return row;
     }
 
     private LinearLayout personPhotoPreview(WeatherOutfit outfit) {
@@ -1496,6 +1635,48 @@ public class MainActivity extends Activity {
         frame.addView(outfitPreview(recommendation));
         return frame;
     }
+
+    private LinearLayout vtonModelSelector() {
+        HorizontalScrollView scroll = new HorizontalScrollView(this);
+        scroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        for (int i = 0; i < vtonModelOptions.length; i++) {
+            final int index = i;
+            boolean selected = selectedVtonModelIndex == i;
+            TextView chip = label(vtonModelOptions[i], 13, selected ? Color.WHITE : INK, true);
+            chip.setGravity(Gravity.CENTER);
+            chip.setPadding(dp(14), dp(8), dp(14), dp(8));
+            chip.setBackground(round(selected ? BLUE : SURFACE, 22, selected ? BLUE : LINE));
+            chip.setOnClickListener(v -> {
+                selectedVtonModelIndex = index;
+                resetVirtualTryOn("Model changed. Generate a new AI try-on.");
+                renderTab(0);
+            });
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, -2);
+            params.setMargins(0, 0, dp(9), dp(8));
+            row.addView(chip, params);
+        }
+        scroll.addView(row);
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.addView(scroll);
+        return wrap;
+    }
+
+    private String currentVtonModel() {
+        return vtonModelOptions[Math.max(0, Math.min(selectedVtonModelIndex, vtonModelOptions.length - 1))];
+    }
+
+    private String currentTryOnKey(OutfitRecommendation recommendation) {
+        return currentVtonModel() + "|" + currentSexLabel() + "|" + currentOccasionLabel() + "|" + currentStyleLabel() + "|" + selectedAvatarIndex + "|" + recommendation.title + "|" + (personPhoto == null ? "avatar" : "photo");
+    }
+
+    private void resetVirtualTryOn(String status) {
+        virtualTryOnBitmap = null;
+        virtualTryOnKey = "";
+        virtualTryOnLoading = false;
+        virtualTryOnStatus = status;
+    }
     private LinearLayout occasionSelector() {
         String[] labels = {"Casual", "Office", "Party", "Date", "Travel", "Classic"};
         HorizontalScrollView scroll = new HorizontalScrollView(this);
@@ -1511,6 +1692,7 @@ public class MainActivity extends Activity {
             chip.setBackground(round(selected ? FOREST : SURFACE, 22, selected ? FOREST : LINE));
             chip.setOnClickListener(v -> {
                 selectedOccasionIndex = index;
+                resetVirtualTryOn("Occasion changed. Generate a new AI try-on.");
                 renderTab(0);
             });
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, -2);
@@ -1626,6 +1808,26 @@ public class MainActivity extends Activity {
 
     private OutfitRecommendation outfit(String title, String summary, String outerwear, String top, String bottom, String shoes, int outerwearColor, int topColor, int bottomColor, int shoesColor, int accentColor, int lookKind, boolean woman, String reason) {
         return new OutfitRecommendation(title, summary, outerwear, top, bottom, shoes, outerwearColor, topColor, bottomColor, shoesColor, accentColor, lookKind, woman, reason);
+    }
+
+    private int sampleOutfitSetResource(OutfitRecommendation recommendation) {
+        int set = Math.max(1, Math.min(recommendation.lookKind + 1, 5));
+        if (recommendation.woman) {
+            switch (set) {
+                case 2: return R.drawable.woman_outfit_set_2;
+                case 3: return R.drawable.woman_outfit_set_3;
+                case 4: return R.drawable.woman_outfit_set_4;
+                case 5: return R.drawable.woman_outfit_set_5;
+                default: return R.drawable.woman_outfit_set_1;
+            }
+        }
+        switch (set) {
+            case 2: return R.drawable.man_outfit_set_2;
+            case 3: return R.drawable.man_outfit_set_3;
+            case 4: return R.drawable.man_outfit_set_4;
+            case 5: return R.drawable.man_outfit_set_5;
+            default: return R.drawable.man_outfit_set_1;
+        }
     }
 
     private LinearLayout outfitPreview(OutfitRecommendation recommendation) {
@@ -2255,6 +2457,16 @@ public class MainActivity extends Activity {
         ExtractionResult(Bitmap bitmap, String itemName, String message) {
             this.bitmap = bitmap;
             this.itemName = itemName;
+            this.message = message;
+        }
+    }
+
+    private static class TryOnResult {
+        final Bitmap bitmap;
+        final String message;
+
+        TryOnResult(Bitmap bitmap, String message) {
+            this.bitmap = bitmap;
             this.message = message;
         }
     }
