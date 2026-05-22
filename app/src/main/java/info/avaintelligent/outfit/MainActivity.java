@@ -15,6 +15,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.location.Location;
@@ -1456,26 +1457,30 @@ public class MainActivity extends Activity {
     }
 
     private LinearLayout personLookPreview(WeatherOutfit outfit) {
+        OutfitRecommendation recommendation = currentOutfitRecommendation(outfit);
         if (personPhoto != null) {
-            return personPhotoPreview(outfit);
+            return personPhotoPreview(outfit, recommendation);
         }
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        ImageView avatar = new ImageView(this);
-        avatar.setImageResource(currentAvatarResource());
-        avatar.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        avatar.setAdjustViewBounds(true);
-        avatar.setBackground(round(BLUSH, 14, LINE));
-        avatar.setPadding(dp(6), dp(6), dp(6), dp(6));
-        row.addView(avatar, new LinearLayout.LayoutParams(dp(100), dp(140)));
-        LinearLayout outfitColors = outfitPreview();
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(140), 1);
-        params.setMargins(dp(10), 0, 0, 0);
-        row.addView(outfitColors, params);
-        return row;
+        LinearLayout preview = new LinearLayout(this);
+        preview.setOrientation(LinearLayout.VERTICAL);
+        preview.setPadding(dp(10), dp(10), dp(10), dp(10));
+        preview.setBackground(round(BLUSH, 16, Color.argb(70, 255, 255, 255)));
+
+        DressedAvatarView avatar = new DressedAvatarView(this, currentAvatarResource(), recommendation);
+        preview.addView(avatar, new LinearLayout.LayoutParams(-1, dp(300)));
+        preview.addView(spacer(10));
+        preview.addView(label(recommendation.title, 18, INK, true));
+        preview.addView(label(recommendation.reason, 14, MUTED, false));
+        preview.addView(spacer(10));
+        preview.addView(outfitPreview(recommendation));
+        return preview;
     }
 
     private LinearLayout personPhotoPreview(WeatherOutfit outfit) {
+        return personPhotoPreview(outfit, currentOutfitRecommendation(outfit));
+    }
+
+    private LinearLayout personPhotoPreview(WeatherOutfit outfit, OutfitRecommendation recommendation) {
         LinearLayout frame = new LinearLayout(this);
         frame.setOrientation(LinearLayout.VERTICAL);
         frame.setPadding(dp(10), dp(10), dp(10), dp(10));
@@ -1485,7 +1490,9 @@ public class MainActivity extends Activity {
         image.setScaleType(ImageView.ScaleType.CENTER_CROP);
         frame.addView(image, new LinearLayout.LayoutParams(-1, dp(240)));
         frame.addView(spacer(8));
-        frame.addView(label("Best look for this photo: " + outfit.outerwear + ", " + outfit.top + ", " + outfit.bottom + ", " + outfit.shoes, 14, INK, true));
+        frame.addView(label("Best look for this photo: " + recommendation.summary, 14, INK, true));
+        frame.addView(spacer(8));
+        frame.addView(outfitPreview(recommendation));
         return frame;
     }
     private LinearLayout occasionSelector() {
@@ -1577,14 +1584,76 @@ public class MainActivity extends Activity {
         return options[index];
     }
 
-    private LinearLayout outfitPreview() {
+    private OutfitRecommendation currentOutfitRecommendation(WeatherOutfit weather) {
+        String occasion = currentOccasionLabel();
+        String style = currentStyleLabel();
+        if ("Office".equals(occasion)) {
+            return new OutfitRecommendation(
+                    "Office " + style + " outfit",
+                    "Charcoal blazer, ivory shirt, tailored navy trousers, black loafers.",
+                    "Charcoal blazer", "Ivory shirt", "Navy trousers", "Black loafers",
+                    Color.rgb(66, 70, 72), Color.rgb(245, 241, 232), Color.rgb(38, 57, 79), Color.rgb(28, 28, 28),
+                    "The app chooses structured dark outerwear, a light top, and formal shoes for a professional office look. " + weather.reason);
+        }
+        if ("Party".equals(occasion)) {
+            return new OutfitRecommendation(
+                    "Party " + style + " outfit",
+                    "Satin black jacket, emerald top, black trousers, polished dark shoes.",
+                    "Satin jacket", "Emerald top", "Black trousers", "Polished shoes",
+                    Color.rgb(24, 24, 30), Color.rgb(34, 118, 91), Color.rgb(18, 18, 22), Color.rgb(36, 32, 31),
+                    "The app increases contrast and adds a stronger color accent for evening energy.");
+        }
+        if ("Date".equals(occasion)) {
+            return new OutfitRecommendation(
+                    "Date " + style + " outfit",
+                    "Soft camel jacket, cream knit, warm taupe trousers, suede shoes.",
+                    "Camel jacket", "Cream knit", "Taupe trousers", "Suede shoes",
+                    Color.rgb(190, 145, 101), Color.rgb(248, 239, 221), Color.rgb(155, 130, 105), Color.rgb(112, 78, 59),
+                    "The app uses warmer tones and softer textures so the outfit feels intentional and approachable.");
+        }
+        if ("Travel".equals(occasion)) {
+            return new OutfitRecommendation(
+                    "Travel " + style + " outfit",
+                    "Olive packable jacket, breathable white tee, stretch sand trousers, comfortable sneakers.",
+                    "Olive jacket", "White tee", "Sand trousers", "Sneakers",
+                    Color.rgb(92, 107, 80), Color.rgb(250, 248, 241), Color.rgb(199, 176, 138), Color.rgb(238, 237, 231),
+                    "The app prioritizes breathable layers, easy movement, and neutral pieces for travel.");
+        }
+        if ("Classic".equals(occasion) || "Classic".equals(style)) {
+            return new OutfitRecommendation(
+                    "Classic outfit",
+                    "Navy blazer, white shirt, beige trousers, brown loafers.",
+                    "Navy blazer", "White shirt", "Beige trousers", "Brown loafers",
+                    Color.rgb(38, 57, 79), Color.rgb(248, 247, 243), Color.rgb(201, 176, 138), Color.rgb(109, 75, 60),
+                    "The app chooses timeless colors with high compatibility: navy, white, beige, and brown.");
+        }
+        if ("Sport".equals(style)) {
+            return new OutfitRecommendation(
+                    "Sport casual outfit",
+                    "Light zip jacket, performance tee, charcoal joggers, white trainers.",
+                    "Zip jacket", "Sport tee", "Joggers", "Trainers",
+                    Color.rgb(88, 109, 140), Color.rgb(235, 242, 242), Color.rgb(72, 74, 76), Color.rgb(246, 246, 242),
+                    "The app keeps the outfit practical and comfortable while matching your selected sporty style.");
+        }
+        return new OutfitRecommendation(
+                "Casual " + style + " outfit",
+                weather.summary,
+                weather.outerwear, weather.top, weather.bottom, weather.shoes,
+                Color.rgb(38, 57, 79), Color.rgb(246, 243, 236), Color.rgb(201, 176, 138), Color.rgb(248, 247, 243),
+                "The app combines sample wardrobe pieces with your weather, occasion, and preferred style.");
+    }
+
+    private LinearLayout outfitPreview(OutfitRecommendation recommendation) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        int[] colors = {Color.rgb(38, 57, 79), Color.rgb(246, 243, 236), Color.rgb(201, 176, 138), Color.rgb(248, 247, 243)};
-        for (int color : colors) {
-            TextView tile = label("o", 32, readable(color), true);
+        String[] names = {recommendation.outerwear, recommendation.top, recommendation.bottom, recommendation.shoes};
+        int[] colors = {recommendation.outerwearColor, recommendation.topColor, recommendation.bottomColor, recommendation.shoesColor};
+        for (int i = 0; i < colors.length; i++) {
+            TextView tile = label(names[i], 10, readable(colors[i]), true);
             tile.setGravity(Gravity.CENTER);
-            tile.setBackground(round(color, 8, Color.argb(70, 255, 255, 255)));
+            tile.setMaxLines(2);
+            tile.setPadding(dp(4), dp(4), dp(4), dp(4));
+            tile.setBackground(round(colors[i], 8, Color.argb(70, 255, 255, 255)));
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(86), 1);
             params.setMargins(0, 0, dp(8), 0);
             row.addView(tile, params);
@@ -1802,6 +1871,98 @@ public class MainActivity extends Activity {
             this.shoppingTip = shoppingTip;
         }
     }
+
+    private static class OutfitRecommendation {
+        final String title;
+        final String summary;
+        final String outerwear;
+        final String top;
+        final String bottom;
+        final String shoes;
+        final int outerwearColor;
+        final int topColor;
+        final int bottomColor;
+        final int shoesColor;
+        final String reason;
+
+        OutfitRecommendation(String title, String summary, String outerwear, String top, String bottom, String shoes, int outerwearColor, int topColor, int bottomColor, int shoesColor, String reason) {
+            this.title = title;
+            this.summary = summary;
+            this.outerwear = outerwear;
+            this.top = top;
+            this.bottom = bottom;
+            this.shoes = shoes;
+            this.outerwearColor = outerwearColor;
+            this.topColor = topColor;
+            this.bottomColor = bottomColor;
+            this.shoesColor = shoesColor;
+            this.reason = reason;
+        }
+    }
+
+    private static class DressedAvatarView extends View {
+        private final Bitmap avatar;
+        private final OutfitRecommendation outfit;
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        DressedAvatarView(Context context, int avatarResource, OutfitRecommendation outfit) {
+            super(context);
+            this.avatar = BitmapFactory.decodeResource(context.getResources(), avatarResource);
+            this.outfit = outfit;
+            setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+            textPaint.setColor(Color.rgb(32, 36, 33));
+            textPaint.setTextAlign(Paint.Align.CENTER);
+            textPaint.setTypeface(Typeface.DEFAULT_BOLD);
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            int width = getWidth();
+            int height = getHeight();
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.rgb(255, 252, 247));
+            canvas.drawRoundRect(new RectF(0, 0, width, height), 28, 28, paint);
+
+            if (avatar != null) {
+                Rect dest = new Rect(width / 2 - width / 5, 12, width / 2 + width / 5, height - 18);
+                paint.setAlpha(210);
+                canvas.drawBitmap(avatar, null, dest, paint);
+                paint.setAlpha(255);
+            }
+
+            float cx = width / 2f;
+            float topY = height * 0.30f;
+            float midY = height * 0.46f;
+            float hipY = height * 0.58f;
+            float kneeY = height * 0.77f;
+            float footY = height * 0.90f;
+            float bodyW = width * 0.23f;
+
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.argb(214, Color.red(outfit.topColor), Color.green(outfit.topColor), Color.blue(outfit.topColor)));
+            canvas.drawRoundRect(new RectF(cx - bodyW * 0.55f, topY, cx + bodyW * 0.55f, hipY), 22, 22, paint);
+
+            paint.setColor(Color.argb(192, Color.red(outfit.outerwearColor), Color.green(outfit.outerwearColor), Color.blue(outfit.outerwearColor)));
+            canvas.drawRoundRect(new RectF(cx - bodyW * 0.88f, topY - 8, cx - bodyW * 0.42f, hipY + 8), 20, 20, paint);
+            canvas.drawRoundRect(new RectF(cx + bodyW * 0.42f, topY - 8, cx + bodyW * 0.88f, hipY + 8), 20, 20, paint);
+
+            paint.setColor(Color.argb(216, Color.red(outfit.bottomColor), Color.green(outfit.bottomColor), Color.blue(outfit.bottomColor)));
+            canvas.drawRoundRect(new RectF(cx - bodyW * 0.52f, hipY - 4, cx - bodyW * 0.08f, kneeY), 20, 20, paint);
+            canvas.drawRoundRect(new RectF(cx + bodyW * 0.08f, hipY - 4, cx + bodyW * 0.52f, kneeY), 20, 20, paint);
+
+            paint.setColor(Color.argb(230, Color.red(outfit.shoesColor), Color.green(outfit.shoesColor), Color.blue(outfit.shoesColor)));
+            canvas.drawRoundRect(new RectF(cx - bodyW * 0.62f, kneeY, cx - bodyW * 0.08f, footY), 22, 22, paint);
+            canvas.drawRoundRect(new RectF(cx + bodyW * 0.08f, kneeY, cx + bodyW * 0.62f, footY), 22, 22, paint);
+            canvas.drawOval(new RectF(cx - bodyW * 0.78f, footY - 4, cx - bodyW * 0.10f, footY + 12), paint);
+            canvas.drawOval(new RectF(cx + bodyW * 0.10f, footY - 4, cx + bodyW * 0.78f, footY + 12), paint);
+
+            textPaint.setTextSize(Math.max(20, width * 0.045f));
+            canvas.drawText(outfit.title, cx, height - 12, textPaint);
+        }
+    }
+
     private static class ExtractionResult {
         final Bitmap bitmap;
         final String itemName;
