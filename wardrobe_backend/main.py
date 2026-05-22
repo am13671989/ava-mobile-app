@@ -133,6 +133,10 @@ def try_on(request: TryOnRequest):
         if result is not None:
             return result
 
+    replicate_result = call_replicate_vton(person, outfit, request, model)
+    if replicate_result is not None:
+        return replicate_result
+
     demo = compose_reference_try_on_demo(person, outfit, request, model)
     return TryOnResponse(
         image_base64=encode_png(demo),
@@ -265,6 +269,97 @@ def call_external_vton_service(url: str, request: TryOnRequest, model: str) -> O
         )
     except Exception:
         return None
+
+
+def call_replicate_vton(person: Image.Image, outfit: Image.Image, request: TryOnRequest, model: str) -> Optional[TryOnResponse]:
+    token = os.getenv("REPLICATE_API_TOKEN", "").strip()
+    if not token:
+        return None
+
+    # Default: Flux VTON on Replicate. You can override this with a full Replicate
+    # version id if you later choose another hosted VTON model.
+    version = os.getenv(
+        "REPLICATE_VTON_VERSION",
+        "a02617fd541ad4b70c1db7e476a43bb23439316e0b03004309e8d1070a8b1f24",
+    ).strip()
+    garment_part = replicate_garment_part(request)
+    payload = {
+        "version": version,
+        "input": {
+            "person_image": image_data_uri(person),
+            "garment_image": image_data_uri(outfit),
+            "garment_part": garment_part,
+        },
+    }
+
+    try:
+        response = requests.post(
+            "https://api.replicate.com/v1/predictions",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                "Prefer": "wait=60",
+            },
+            json=payload,
+            timeout=90,
+        )
+        response.raise_for_status()
+        prediction = response.json()
+        prediction = wait_for_replicate_prediction(prediction, token)
+        output_url = replicate_output_url(prediction)
+        if not output_url:
+            return None
+        image_response = requests.get(output_url, timeout=90)
+        image_response.raise_for_status()
+        result = Image.open(io.BytesIO(image_response.content)).convert("RGB")
+        return TryOnResponse(
+            image_base64=encode_png(result),
+            message=f"{model} request completed with Replicate hosted VTON ({garment_part}).",
+            model=model,
+            source="replicate",
+        )
+    except Exception:
+        return None
+
+
+def wait_for_replicate_prediction(prediction: dict, token: str) -> dict:
+    status = prediction.get("status")
+    get_url = prediction.get("urls", {}).get("get")
+    if status in {"succeeded", "failed", "canceled"} or not get_url:
+        return prediction
+    for _ in range(24):
+        response = requests.get(get_url, headers={"Authorization": f"Bearer {token}"}, timeout=30)
+        response.raise_for_status()
+        prediction = response.json()
+        status = prediction.get("status")
+        if status in {"succeeded", "failed", "canceled"}:
+            return prediction
+    return prediction
+
+
+def replicate_output_url(prediction: dict) -> Optional[str]:
+    if prediction.get("status") != "succeeded":
+        return None
+    output = prediction.get("output")
+    if isinstance(output, str):
+        return output
+    if isinstance(output, list) and output:
+        first = output[0]
+        return first if isinstance(first, str) else None
+    return None
+
+
+def replicate_garment_part(request: TryOnRequest) -> str:
+    text = f"{request.occasion} {request.style} {request.prompt}".lower()
+    if any(word in text for word in ("trouser", "pants", "jeans", "shorts", "skirt", "legging")):
+        return "lower_body"
+    if any(word in text for word in ("dress", "robe", "gown", "evening")):
+        return "dresses"
+    return "upper_body"
+
+
+def image_data_uri(image: Image.Image) -> str:
+    return "data:image/png;base64," + encode_png(image)
 
 
 def compose_reference_try_on_demo(person: Image.Image, outfit: Image.Image, request: TryOnRequest, model: str) -> Image.Image:

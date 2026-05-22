@@ -42,3 +42,14 @@ WARDROBE_BACKEND_BASE_URL=http://YOUR_COMPUTER_IP:8000
 ```
 
 Then sync and run Android Studio.
+
+## Replicate virtual try-on
+
+To use the hosted Replicate VTON path on Windows, run this from the project root:
+
+```powershell
+.\run_backend_replicate.bat
+```
+
+The script asks for `REPLICATE_API_TOKEN` at launch, so the token is not stored in Git.
+If no token is provided, `/try-on` returns the local reference demo instead of a real AI try-on.
