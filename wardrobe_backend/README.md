@@ -53,3 +53,58 @@ To use the hosted Replicate VTON path on Windows, run this from the project root
 
 The script asks for `REPLICATE_API_TOKEN` at launch, so the token is not stored in Git.
 If no token is provided, `/try-on` returns the local reference demo instead of a real AI try-on.
+
+## OOTDiffusion virtual try-on
+
+The app now uses `OOTDiffusion` as the first/default virtual try-on model.
+OOTDiffusion is the model from:
+
+```text
+https://github.com/levihsu/OOTDiffusion
+```
+
+Because OOTDiffusion needs a GPU environment, run it as a separate service and point this backend to it:
+
+```powershell
+set OOTDIFFUSION_SERVICE_URL=http://YOUR_GPU_SERVER:7860
+python -m uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+Expected service endpoint:
+
+```text
+POST /try-on
+```
+
+Expected request fields:
+
+```json
+{
+  "model_image_base64": "...",
+  "garment_image_base64": "...",
+  "category": 0,
+  "category_label": "upperbody",
+  "sex": "Woman",
+  "occasion": "Office",
+  "style": "Classic",
+  "prompt": "..."
+}
+```
+
+OOTDiffusion category mapping:
+
+```text
+0 = upperbody
+1 = lowerbody
+2 = dress
+```
+
+Expected response:
+
+```json
+{
+  "image_base64": "...",
+  "message": "OOTDiffusion virtual try-on completed",
+  "source": "ootdiffusion"
+}
+```

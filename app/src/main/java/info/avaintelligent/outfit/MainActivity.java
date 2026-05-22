@@ -103,7 +103,7 @@ public class MainActivity extends Activity {
     private int selectedVtonModelIndex = 0;
     private final String[] sexOptions = {"Woman", "Man"};
     private final String[] styleOptions = {"Classic", "Warm", "Sport", "Elegant", "Street", "Minimal"};
-    private final String[] vtonModelOptions = {"IDM-VTON", "OOTDiffusion", "VITON-HD", "StableVITON", "HR-VITON"};
+    private final String[] vtonModelOptions = {"OOTDiffusion", "IDM-VTON", "VITON-HD", "StableVITON", "HR-VITON"};
     private final ArrayList<SavedClothingItem> savedClothingItems = new ArrayList<>();
 
     @Override

@@ -127,6 +127,12 @@ def try_on(request: TryOnRequest):
     except Exception as exc:
         raise HTTPException(status_code=400, detail="Invalid try-on image payload") from exc
 
+    ootdiffusion = os.getenv("OOTDIFFUSION_SERVICE_URL", "").strip()
+    if ootdiffusion:
+        result = call_ootdiffusion_service(ootdiffusion, person, outfit, request)
+        if result is not None:
+            return result
+
     external = os.getenv("VTON_SERVICE_URL", "").strip()
     if external:
         result = call_external_vton_service(external, request, model)
@@ -140,12 +146,12 @@ def try_on(request: TryOnRequest):
 
     demo = compose_reference_try_on_demo(person, outfit, request, model)
     message = (
-        "Replicate VTON call failed. Check REPLICATE_API_TOKEN, account billing, and model availability. "
-        "This response is a reference-set demo."
-        if replicate_token_present
-        else (
-            f"{model} endpoint contract is ready. Set VTON_SERVICE_URL to a GPU service "
-            "running IDM-VTON, OOTDiffusion, VITON-HD, StableVITON, or HR-VITON for real try-on. "
+            "Replicate VTON call failed. Check REPLICATE_API_TOKEN, account billing, and model availability. "
+            "This response is a reference-set demo."
+            if replicate_token_present
+            else (
+            f"{model} endpoint contract is ready. Set OOTDIFFUSION_SERVICE_URL to a GPU service "
+            "running https://github.com/levihsu/OOTDiffusion, or set VTON_SERVICE_URL for another VTON service. "
             "This response is a reference-set demo."
         )
     )
@@ -276,6 +282,52 @@ def call_external_vton_service(url: str, request: TryOnRequest, model: str) -> O
         )
     except Exception:
         return None
+
+
+def call_ootdiffusion_service(url: str, person: Image.Image, outfit: Image.Image, request: TryOnRequest) -> Optional[TryOnResponse]:
+    payload = {
+        "model_image_base64": encode_png(person),
+        "garment_image_base64": encode_png(outfit),
+        "category": ootdiffusion_category(request),
+        "category_label": ootdiffusion_category_label(request),
+        "sex": request.sex,
+        "occasion": request.occasion,
+        "style": request.style,
+        "prompt": request.prompt,
+    }
+    try:
+        response = requests.post(url.rstrip("/") + "/try-on", json=payload, timeout=300)
+        response.raise_for_status()
+        data = response.json()
+        image_base64 = data.get("image_base64", "")
+        if not image_base64:
+            return None
+        return TryOnResponse(
+            image_base64=image_base64,
+            message=data.get("message", "OOTDiffusion virtual try-on completed."),
+            model="OOTDiffusion",
+            source=data.get("source", "ootdiffusion"),
+        )
+    except Exception:
+        return None
+
+
+def ootdiffusion_category(request: TryOnRequest) -> int:
+    text = f"{request.occasion} {request.style} {request.prompt}".lower()
+    if any(word in text for word in ("dress", "robe", "gown", "evening")):
+        return 2
+    if any(word in text for word in ("trouser", "pants", "jeans", "shorts", "skirt", "legging")):
+        return 1
+    return 0
+
+
+def ootdiffusion_category_label(request: TryOnRequest) -> str:
+    category = ootdiffusion_category(request)
+    if category == 2:
+        return "dress"
+    if category == 1:
+        return "lowerbody"
+    return "upperbody"
 
 
 def call_replicate_vton(person: Image.Image, outfit: Image.Image, request: TryOnRequest, model: str) -> Optional[TryOnResponse]:
