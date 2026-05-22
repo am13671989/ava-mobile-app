@@ -13,6 +13,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.RectF;
@@ -1587,60 +1588,44 @@ public class MainActivity extends Activity {
     private OutfitRecommendation currentOutfitRecommendation(WeatherOutfit weather) {
         String occasion = currentOccasionLabel();
         String style = currentStyleLabel();
+        boolean woman = selectedSexIndex == 0;
+        if ("Sport".equals(style)) {
+            return woman
+                    ? outfit("Women set 4 - Athleisure", "Taupe sports bra, taupe leggings, black hoodie, white trainers.", "Black hoodie", "Taupe sports bra", "Taupe leggings", "White trainers", Color.rgb(28, 29, 31), Color.rgb(169, 139, 128), Color.rgb(157, 128, 118), Color.rgb(246, 246, 242), Color.rgb(30, 30, 32), 3, true, "Like the reference athleisure set: fitted active base, hoodie layer, and clean trainers.")
+                    : outfit("Men set 4 - Street style", "Cream hoodie, black cargo trousers, dark sneakers, black cap.", "Cream hoodie", "White tee", "Black cargo trousers", "Dark sneakers", Color.rgb(239, 232, 218), Color.rgb(246, 243, 236), Color.rgb(31, 32, 33), Color.rgb(28, 28, 30), Color.rgb(22, 22, 23), 3, false, "Like the reference street set: hoodie layer, cargo bottom, and grounded dark sneakers.");
+        }
         if ("Office".equals(occasion)) {
-            return new OutfitRecommendation(
-                    "Office " + style + " outfit",
-                    "Charcoal blazer, ivory shirt, tailored navy trousers, black loafers.",
-                    "Charcoal blazer", "Ivory shirt", "Navy trousers", "Black loafers",
-                    Color.rgb(66, 70, 72), Color.rgb(245, 241, 232), Color.rgb(38, 57, 79), Color.rgb(28, 28, 28),
-                    "The app chooses structured dark outerwear, a light top, and formal shoes for a professional office look. " + weather.reason);
+            return woman
+                    ? outfit("Women set 3 - Work chic", "Champagne blouse, black tailored trousers, blue shirt layer, beige handbag tone.", "Blue shirt", "Champagne blouse", "Black trousers", "Beige flats", Color.rgb(178, 205, 230), Color.rgb(223, 191, 160), Color.rgb(30, 31, 32), Color.rgb(215, 184, 143), Color.rgb(180, 155, 130), 2, true, "The app chooses the work-chic formula from the reference: soft blouse, sharp trouser, and polished neutral accessories. " + weather.reason)
+                    : outfit("Men set 3 - Smart casual", "Beige polo, cream trousers, navy overshirt, brown loafers.", "Navy overshirt", "Beige polo", "Cream trousers", "Brown loafers", Color.rgb(31, 48, 68), Color.rgb(199, 174, 142), Color.rgb(232, 222, 203), Color.rgb(111, 72, 42), Color.rgb(104, 62, 35), 5, false, "The app chooses the smart-casual formula from the reference: polo, light trouser, overshirt, and leather shoes.");
         }
         if ("Party".equals(occasion)) {
-            return new OutfitRecommendation(
-                    "Party " + style + " outfit",
-                    "Satin black jacket, emerald top, black trousers, polished dark shoes.",
-                    "Satin jacket", "Emerald top", "Black trousers", "Polished shoes",
-                    Color.rgb(24, 24, 30), Color.rgb(34, 118, 91), Color.rgb(18, 18, 22), Color.rgb(36, 32, 31),
-                    "The app increases contrast and adds a stronger color accent for evening energy.");
+            return woman
+                    ? outfit("Women set 5 - Evening out", "Black satin camisole, black wide trousers, cropped black jacket, gold accessories.", "Cropped jacket", "Black camisole", "Black trousers", "Black heels", Color.rgb(24, 24, 27), Color.rgb(22, 22, 25), Color.rgb(18, 18, 20), Color.rgb(25, 24, 23), Color.rgb(204, 166, 83), 4, true, "The app follows the evening reference: all-black base, delicate top, cropped jacket, and metallic accent.")
+                    : outfit("Men set 5 - Night out", "Black open-collar shirt, black trousers, black dress shoes, silver watch.", "Black shirt", "Black shirt", "Black trousers", "Black dress shoes", Color.rgb(20, 21, 22), Color.rgb(18, 18, 19), Color.rgb(18, 18, 19), Color.rgb(22, 22, 22), Color.rgb(190, 190, 184), 4, false, "The app follows the night-out reference: black shirt, black trouser, polished shoes, and a small metallic accessory.");
         }
         if ("Date".equals(occasion)) {
-            return new OutfitRecommendation(
-                    "Date " + style + " outfit",
-                    "Soft camel jacket, cream knit, warm taupe trousers, suede shoes.",
-                    "Camel jacket", "Cream knit", "Taupe trousers", "Suede shoes",
-                    Color.rgb(190, 145, 101), Color.rgb(248, 239, 221), Color.rgb(155, 130, 105), Color.rgb(112, 78, 59),
-                    "The app uses warmer tones and softer textures so the outfit feels intentional and approachable.");
+            return woman
+                    ? outfit("Warm date outfit", "Cream blouse, camel jacket, taupe trousers, suede heels.", "Camel jacket", "Cream blouse", "Taupe trousers", "Suede heels", Color.rgb(190, 145, 101), Color.rgb(248, 239, 221), Color.rgb(155, 130, 105), Color.rgb(112, 78, 59), Color.rgb(180, 135, 92), 2, true, "The app uses warmer tones and softer textures so the outfit feels intentional and approachable.")
+                    : outfit("Warm date outfit", "Camel overshirt, cream tee, taupe trousers, brown loafers.", "Camel overshirt", "Cream tee", "Taupe trousers", "Brown loafers", Color.rgb(184, 139, 94), Color.rgb(245, 238, 222), Color.rgb(155, 130, 105), Color.rgb(111, 72, 42), Color.rgb(125, 85, 58), 5, false, "The app uses warm neutrals and smart-casual proportions for a softer date look.");
         }
         if ("Travel".equals(occasion)) {
-            return new OutfitRecommendation(
-                    "Travel " + style + " outfit",
-                    "Olive packable jacket, breathable white tee, stretch sand trousers, comfortable sneakers.",
-                    "Olive jacket", "White tee", "Sand trousers", "Sneakers",
-                    Color.rgb(92, 107, 80), Color.rgb(250, 248, 241), Color.rgb(199, 176, 138), Color.rgb(238, 237, 231),
-                    "The app prioritizes breathable layers, easy movement, and neutral pieces for travel.");
+            return woman
+                    ? outfit("Women set 2 - Beach vacay", "White bikini, ivory robe, straw bag, brown sandals.", "Ivory robe", "White bikini", "White bikini bottom", "Brown sandals", Color.rgb(246, 239, 225), Color.rgb(250, 248, 241), Color.rgb(250, 248, 241), Color.rgb(119, 77, 44), Color.rgb(207, 163, 86), 1, true, "Like the reference beach set: light swimwear, an open robe layer, and warm vacation accessories.")
+                    : outfit("Men set 2 - Beach vacay", "Ivory resort shirt, navy swim shorts, sandals, navy cap.", "Ivory resort shirt", "Bare chest", "Navy swim shorts", "Brown sandals", Color.rgb(246, 239, 225), Color.rgb(224, 178, 141), Color.rgb(30, 58, 82), Color.rgb(117, 76, 45), Color.rgb(31, 48, 68), 1, false, "Like the reference beach set: open resort shirt, swim shorts, sandals, and travel accessories.");
         }
         if ("Classic".equals(occasion) || "Classic".equals(style)) {
-            return new OutfitRecommendation(
-                    "Classic outfit",
-                    "Navy blazer, white shirt, beige trousers, brown loafers.",
-                    "Navy blazer", "White shirt", "Beige trousers", "Brown loafers",
-                    Color.rgb(38, 57, 79), Color.rgb(248, 247, 243), Color.rgb(201, 176, 138), Color.rgb(109, 75, 60),
-                    "The app chooses timeless colors with high compatibility: navy, white, beige, and brown.");
+            return woman
+                    ? outfit("Classic outfit", "Ivory shirt, navy blazer, beige trousers, brown loafers.", "Navy blazer", "Ivory shirt", "Beige trousers", "Brown loafers", Color.rgb(38, 57, 79), Color.rgb(248, 247, 243), Color.rgb(201, 176, 138), Color.rgb(109, 75, 60), Color.rgb(156, 119, 73), 2, true, "The app chooses timeless colors with high compatibility: navy, ivory, beige, and brown.")
+                    : outfit("Classic outfit", "Navy overshirt, white tee, beige trousers, brown loafers.", "Navy overshirt", "White tee", "Beige trousers", "Brown loafers", Color.rgb(38, 57, 79), Color.rgb(248, 247, 243), Color.rgb(201, 176, 138), Color.rgb(109, 75, 60), Color.rgb(126, 77, 44), 5, false, "The app chooses timeless colors with high compatibility: navy, white, beige, and brown.");
         }
-        if ("Sport".equals(style)) {
-            return new OutfitRecommendation(
-                    "Sport casual outfit",
-                    "Light zip jacket, performance tee, charcoal joggers, white trainers.",
-                    "Zip jacket", "Sport tee", "Joggers", "Trainers",
-                    Color.rgb(88, 109, 140), Color.rgb(235, 242, 242), Color.rgb(72, 74, 76), Color.rgb(246, 246, 242),
-                    "The app keeps the outfit practical and comfortable while matching your selected sporty style.");
-        }
-        return new OutfitRecommendation(
-                "Casual " + style + " outfit",
-                weather.summary,
-                weather.outerwear, weather.top, weather.bottom, weather.shoes,
-                Color.rgb(38, 57, 79), Color.rgb(246, 243, 236), Color.rgb(201, 176, 138), Color.rgb(248, 247, 243),
-                "The app combines sample wardrobe pieces with your weather, occasion, and preferred style.");
+        return woman
+                ? outfit("Women set 1 - Casual day", "White fitted tee, light denim shorts, cream overshirt, white sneakers.", "Cream overshirt", "White tee", "Denim shorts", "White sneakers", Color.rgb(234, 222, 202), Color.rgb(250, 249, 244), Color.rgb(156, 190, 215), Color.rgb(246, 246, 242), Color.rgb(232, 221, 202), 0, true, "Like the reference casual-day set: white tee, denim shorts, light layer, and clean sneakers. " + weather.reason)
+                : outfit("Men set 1 - Casual day", "White tee, beige shorts, light denim shirt, white sneakers.", "Light denim shirt", "White tee", "Beige shorts", "White sneakers", Color.rgb(170, 202, 222), Color.rgb(250, 249, 244), Color.rgb(207, 194, 174), Color.rgb(246, 246, 242), Color.rgb(170, 202, 222), 0, false, "Like the reference casual-day set: white tee, neutral shorts, light overshirt, and white sneakers. " + weather.reason);
+    }
+
+    private OutfitRecommendation outfit(String title, String summary, String outerwear, String top, String bottom, String shoes, int outerwearColor, int topColor, int bottomColor, int shoesColor, int accentColor, int lookKind, boolean woman, String reason) {
+        return new OutfitRecommendation(title, summary, outerwear, top, bottom, shoes, outerwearColor, topColor, bottomColor, shoesColor, accentColor, lookKind, woman, reason);
     }
 
     private LinearLayout outfitPreview(OutfitRecommendation recommendation) {
@@ -1883,9 +1868,12 @@ public class MainActivity extends Activity {
         final int topColor;
         final int bottomColor;
         final int shoesColor;
+        final int accentColor;
+        final int lookKind;
+        final boolean woman;
         final String reason;
 
-        OutfitRecommendation(String title, String summary, String outerwear, String top, String bottom, String shoes, int outerwearColor, int topColor, int bottomColor, int shoesColor, String reason) {
+        OutfitRecommendation(String title, String summary, String outerwear, String top, String bottom, String shoes, int outerwearColor, int topColor, int bottomColor, int shoesColor, int accentColor, int lookKind, boolean woman, String reason) {
             this.title = title;
             this.summary = summary;
             this.outerwear = outerwear;
@@ -1896,6 +1884,9 @@ public class MainActivity extends Activity {
             this.topColor = topColor;
             this.bottomColor = bottomColor;
             this.shoesColor = shoesColor;
+            this.accentColor = accentColor;
+            this.lookKind = lookKind;
+            this.woman = woman;
             this.reason = reason;
         }
     }
@@ -1926,40 +1917,333 @@ public class MainActivity extends Activity {
             canvas.drawRoundRect(new RectF(0, 0, width, height), 28, 28, paint);
 
             if (avatar != null) {
-                Rect dest = new Rect(width / 2 - width / 5, 12, width / 2 + width / 5, height - 18);
-                paint.setAlpha(210);
+                Rect dest = new Rect(width / 2 - width / 5, 10, width / 2 + width / 5, height - 24);
+                paint.setAlpha(175);
                 canvas.drawBitmap(avatar, null, dest, paint);
                 paint.setAlpha(255);
             }
 
             float cx = width / 2f;
-            float topY = height * 0.30f;
-            float midY = height * 0.46f;
+            float shoulderY = height * 0.31f;
+            float waistY = height * 0.48f;
             float hipY = height * 0.58f;
-            float kneeY = height * 0.77f;
-            float footY = height * 0.90f;
-            float bodyW = width * 0.23f;
+            float kneeY = height * 0.76f;
+            float ankleY = height * 0.90f;
+            float bodyW = outfit.woman ? width * 0.25f : width * 0.28f;
 
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.argb(214, Color.red(outfit.topColor), Color.green(outfit.topColor), Color.blue(outfit.topColor)));
-            canvas.drawRoundRect(new RectF(cx - bodyW * 0.55f, topY, cx + bodyW * 0.55f, hipY), 22, 22, paint);
+            drawLegBase(canvas, cx, hipY, kneeY, ankleY, bodyW);
 
-            paint.setColor(Color.argb(192, Color.red(outfit.outerwearColor), Color.green(outfit.outerwearColor), Color.blue(outfit.outerwearColor)));
-            canvas.drawRoundRect(new RectF(cx - bodyW * 0.88f, topY - 8, cx - bodyW * 0.42f, hipY + 8), 20, 20, paint);
-            canvas.drawRoundRect(new RectF(cx + bodyW * 0.42f, topY - 8, cx + bodyW * 0.88f, hipY + 8), 20, 20, paint);
+            switch (outfit.lookKind) {
+                case 1:
+                    drawBeachSet(canvas, cx, shoulderY, waistY, hipY, kneeY, ankleY, bodyW);
+                    break;
+                case 2:
+                    drawWorkSet(canvas, cx, shoulderY, waistY, hipY, kneeY, ankleY, bodyW);
+                    break;
+                case 3:
+                    drawAthleisureSet(canvas, cx, shoulderY, waistY, hipY, kneeY, ankleY, bodyW);
+                    break;
+                case 4:
+                    drawEveningSet(canvas, cx, shoulderY, waistY, hipY, kneeY, ankleY, bodyW);
+                    break;
+                case 5:
+                    drawSmartCasualSet(canvas, cx, shoulderY, waistY, hipY, kneeY, ankleY, bodyW);
+                    break;
+                default:
+                    drawCasualSet(canvas, cx, shoulderY, waistY, hipY, kneeY, ankleY, bodyW);
+                    break;
+            }
 
-            paint.setColor(Color.argb(216, Color.red(outfit.bottomColor), Color.green(outfit.bottomColor), Color.blue(outfit.bottomColor)));
-            canvas.drawRoundRect(new RectF(cx - bodyW * 0.52f, hipY - 4, cx - bodyW * 0.08f, kneeY), 20, 20, paint);
-            canvas.drawRoundRect(new RectF(cx + bodyW * 0.08f, hipY - 4, cx + bodyW * 0.52f, kneeY), 20, 20, paint);
-
-            paint.setColor(Color.argb(230, Color.red(outfit.shoesColor), Color.green(outfit.shoesColor), Color.blue(outfit.shoesColor)));
-            canvas.drawRoundRect(new RectF(cx - bodyW * 0.62f, kneeY, cx - bodyW * 0.08f, footY), 22, 22, paint);
-            canvas.drawRoundRect(new RectF(cx + bodyW * 0.08f, kneeY, cx + bodyW * 0.62f, footY), 22, 22, paint);
-            canvas.drawOval(new RectF(cx - bodyW * 0.78f, footY - 4, cx - bodyW * 0.10f, footY + 12), paint);
-            canvas.drawOval(new RectF(cx + bodyW * 0.10f, footY - 4, cx + bodyW * 0.78f, footY + 12), paint);
+            drawAccessories(canvas, cx, shoulderY, hipY, ankleY, bodyW);
 
             textPaint.setTextSize(Math.max(20, width * 0.045f));
             canvas.drawText(outfit.title, cx, height - 12, textPaint);
+        }
+
+        private void drawCasualSet(Canvas canvas, float cx, float shoulderY, float waistY, float hipY, float kneeY, float ankleY, float bodyW) {
+            drawTee(canvas, cx, shoulderY, waistY, bodyW, outfit.topColor);
+            drawOpenLayer(canvas, cx, shoulderY + 8, hipY, bodyW, outfit.outerwearColor);
+            if (outfit.woman) {
+                drawShorts(canvas, cx, hipY - 8, kneeY - 36, bodyW * 0.92f, outfit.bottomColor);
+            } else {
+                drawShorts(canvas, cx, hipY - 4, kneeY - 8, bodyW, outfit.bottomColor);
+            }
+            drawSneakers(canvas, cx, ankleY, bodyW, outfit.shoesColor);
+        }
+
+        private void drawBeachSet(Canvas canvas, float cx, float shoulderY, float waistY, float hipY, float kneeY, float ankleY, float bodyW) {
+            if (outfit.woman) {
+                drawBikini(canvas, cx, shoulderY + 18, waistY, hipY, bodyW, outfit.topColor, outfit.bottomColor);
+                drawRobe(canvas, cx, shoulderY - 2, kneeY, bodyW * 1.22f, outfit.outerwearColor);
+            } else {
+                drawOpenResortShirt(canvas, cx, shoulderY, hipY, bodyW, outfit.outerwearColor);
+                drawShorts(canvas, cx, hipY - 2, kneeY - 8, bodyW * 1.02f, outfit.bottomColor);
+            }
+            drawSandals(canvas, cx, ankleY, bodyW, outfit.shoesColor);
+        }
+
+        private void drawWorkSet(Canvas canvas, float cx, float shoulderY, float waistY, float hipY, float kneeY, float ankleY, float bodyW) {
+            drawBlouse(canvas, cx, shoulderY, hipY, bodyW, outfit.topColor);
+            drawBlazer(canvas, cx, shoulderY - 8, hipY + 8, bodyW * 1.15f, outfit.outerwearColor);
+            drawTrousers(canvas, cx, hipY - 5, ankleY - 4, bodyW * 0.9f, outfit.bottomColor);
+            drawLoafers(canvas, cx, ankleY, bodyW, outfit.shoesColor);
+        }
+
+        private void drawAthleisureSet(Canvas canvas, float cx, float shoulderY, float waistY, float hipY, float kneeY, float ankleY, float bodyW) {
+            if (outfit.woman) {
+                drawSportsBra(canvas, cx, shoulderY + 12, waistY + 6, bodyW, outfit.topColor);
+                drawLeggings(canvas, cx, waistY + 8, ankleY - 6, bodyW * 0.84f, outfit.bottomColor);
+                drawHoodie(canvas, cx, shoulderY - 12, hipY + 6, bodyW * 1.2f, outfit.outerwearColor, true);
+            } else {
+                drawHoodie(canvas, cx, shoulderY - 12, hipY + 18, bodyW * 1.15f, outfit.outerwearColor, false);
+                drawCargoTrousers(canvas, cx, hipY - 4, ankleY - 4, bodyW, outfit.bottomColor);
+            }
+            drawSneakers(canvas, cx, ankleY, bodyW, outfit.shoesColor);
+        }
+
+        private void drawEveningSet(Canvas canvas, float cx, float shoulderY, float waistY, float hipY, float kneeY, float ankleY, float bodyW) {
+            if (outfit.woman) {
+                drawCamisole(canvas, cx, shoulderY + 8, hipY, bodyW * 0.78f, outfit.topColor);
+                drawCroppedJacket(canvas, cx, shoulderY - 6, waistY + 20, bodyW * 1.1f, outfit.outerwearColor);
+                drawWideTrousers(canvas, cx, hipY - 8, ankleY - 2, bodyW, outfit.bottomColor);
+                drawHeels(canvas, cx, ankleY, bodyW, outfit.shoesColor);
+            } else {
+                drawOpenCollarShirt(canvas, cx, shoulderY, hipY, bodyW, outfit.topColor);
+                drawSlimTrousers(canvas, cx, hipY - 5, ankleY - 4, bodyW * 0.88f, outfit.bottomColor);
+                drawLoafers(canvas, cx, ankleY, bodyW, outfit.shoesColor);
+            }
+        }
+
+        private void drawSmartCasualSet(Canvas canvas, float cx, float shoulderY, float waistY, float hipY, float kneeY, float ankleY, float bodyW) {
+            if (outfit.woman) {
+                drawBlouse(canvas, cx, shoulderY, hipY, bodyW * 0.88f, outfit.topColor);
+                drawBlazer(canvas, cx, shoulderY - 8, hipY + 8, bodyW * 1.1f, outfit.outerwearColor);
+            } else {
+                drawPolo(canvas, cx, shoulderY, hipY, bodyW, outfit.topColor);
+                drawOpenLayer(canvas, cx, shoulderY - 4, hipY + 4, bodyW * 1.08f, outfit.outerwearColor);
+            }
+            drawTrousers(canvas, cx, hipY - 5, ankleY - 4, bodyW * 0.86f, outfit.bottomColor);
+            drawLoafers(canvas, cx, ankleY, bodyW, outfit.shoesColor);
+        }
+
+        private void drawTee(Canvas canvas, float cx, float y, float bottom, float w, int color) {
+            setColor(color, 236);
+            Path p = new Path();
+            p.moveTo(cx - w * 0.72f, y + 18);
+            p.lineTo(cx - w * 0.38f, y);
+            p.lineTo(cx + w * 0.38f, y);
+            p.lineTo(cx + w * 0.72f, y + 18);
+            p.lineTo(cx + w * 0.48f, y + 54);
+            p.lineTo(cx + w * 0.36f, bottom);
+            p.lineTo(cx - w * 0.36f, bottom);
+            p.lineTo(cx - w * 0.48f, y + 54);
+            p.close();
+            canvas.drawPath(p, paint);
+            stroke(canvas, p);
+        }
+
+        private void drawBlouse(Canvas canvas, float cx, float y, float bottom, float w, int color) {
+            setColor(color, 232);
+            canvas.drawRoundRect(new RectF(cx - w * 0.42f, y, cx + w * 0.42f, bottom), 18, 18, paint);
+            drawVNeck(canvas, cx, y + 8, w * 0.18f);
+        }
+
+        private void drawPolo(Canvas canvas, float cx, float y, float bottom, float w, int color) {
+            drawTee(canvas, cx, y, bottom, w, color);
+            setColor(Color.rgb(238, 232, 220), 220);
+            Path collar = new Path();
+            collar.moveTo(cx - w * 0.18f, y + 5);
+            collar.lineTo(cx, y + 34);
+            collar.lineTo(cx + w * 0.18f, y + 5);
+            canvas.drawPath(collar, paint);
+        }
+
+        private void drawBikini(Canvas canvas, float cx, float y, float waistY, float hipY, float w, int topColor, int bottomColor) {
+            setColor(topColor, 238);
+            Path left = triangle(cx - w * 0.25f, y, cx - w * 0.52f, waistY, cx - w * 0.02f, waistY);
+            Path right = triangle(cx + w * 0.25f, y, cx + w * 0.02f, waistY, cx + w * 0.52f, waistY);
+            canvas.drawPath(left, paint);
+            canvas.drawPath(right, paint);
+            setColor(bottomColor, 238);
+            Path bottom = triangle(cx, hipY + 10, cx - w * 0.45f, hipY - 20, cx + w * 0.45f, hipY - 20);
+            canvas.drawPath(bottom, paint);
+        }
+
+        private void drawSportsBra(Canvas canvas, float cx, float y, float bottom, float w, int color) {
+            setColor(color, 238);
+            canvas.drawRoundRect(new RectF(cx - w * 0.48f, y, cx + w * 0.48f, bottom), 24, 24, paint);
+        }
+
+        private void drawCamisole(Canvas canvas, float cx, float y, float bottom, float w, int color) {
+            setColor(color, 236);
+            Path p = new Path();
+            p.moveTo(cx - w * 0.42f, y + 18);
+            p.lineTo(cx - w * 0.24f, y);
+            p.lineTo(cx, y + 26);
+            p.lineTo(cx + w * 0.24f, y);
+            p.lineTo(cx + w * 0.42f, y + 18);
+            p.lineTo(cx + w * 0.35f, bottom);
+            p.lineTo(cx - w * 0.35f, bottom);
+            p.close();
+            canvas.drawPath(p, paint);
+        }
+
+        private void drawShorts(Canvas canvas, float cx, float y, float bottom, float w, int color) {
+            setColor(color, 232);
+            canvas.drawRoundRect(new RectF(cx - w * 0.58f, y, cx - w * 0.04f, bottom), 18, 18, paint);
+            canvas.drawRoundRect(new RectF(cx + w * 0.04f, y, cx + w * 0.58f, bottom), 18, 18, paint);
+        }
+
+        private void drawTrousers(Canvas canvas, float cx, float y, float bottom, float w, int color) {
+            setColor(color, 232);
+            canvas.drawRoundRect(new RectF(cx - w * 0.48f, y, cx - w * 0.08f, bottom), 18, 18, paint);
+            canvas.drawRoundRect(new RectF(cx + w * 0.08f, y, cx + w * 0.48f, bottom), 18, 18, paint);
+        }
+
+        private void drawWideTrousers(Canvas canvas, float cx, float y, float bottom, float w, int color) {
+            setColor(color, 235);
+            canvas.drawRoundRect(new RectF(cx - w * 0.62f, y, cx - w * 0.08f, bottom), 18, 18, paint);
+            canvas.drawRoundRect(new RectF(cx + w * 0.08f, y, cx + w * 0.62f, bottom), 18, 18, paint);
+        }
+
+        private void drawSlimTrousers(Canvas canvas, float cx, float y, float bottom, float w, int color) {
+            drawTrousers(canvas, cx, y, bottom, w * 0.82f, color);
+        }
+
+        private void drawLeggings(Canvas canvas, float cx, float y, float bottom, float w, int color) {
+            setColor(color, 220);
+            canvas.drawRoundRect(new RectF(cx - w * 0.42f, y, cx - w * 0.06f, bottom), 28, 28, paint);
+            canvas.drawRoundRect(new RectF(cx + w * 0.06f, y, cx + w * 0.42f, bottom), 28, 28, paint);
+        }
+
+        private void drawCargoTrousers(Canvas canvas, float cx, float y, float bottom, float w, int color) {
+            drawTrousers(canvas, cx, y, bottom, w, color);
+            setColor(Color.argb(150, 255, 255, 255), 150);
+            canvas.drawRoundRect(new RectF(cx - w * 0.62f, y + (bottom - y) * 0.32f, cx - w * 0.28f, y + (bottom - y) * 0.52f), 8, 8, paint);
+            canvas.drawRoundRect(new RectF(cx + w * 0.28f, y + (bottom - y) * 0.32f, cx + w * 0.62f, y + (bottom - y) * 0.52f), 8, 8, paint);
+        }
+
+        private void drawBlazer(Canvas canvas, float cx, float y, float bottom, float w, int color) {
+            setColor(color, 218);
+            Path left = new Path();
+            left.moveTo(cx - w * 0.12f, y + 12);
+            left.lineTo(cx - w * 0.72f, y + 22);
+            left.lineTo(cx - w * 0.52f, bottom);
+            left.lineTo(cx - w * 0.06f, bottom);
+            left.close();
+            Path right = new Path();
+            right.moveTo(cx + w * 0.12f, y + 12);
+            right.lineTo(cx + w * 0.72f, y + 22);
+            right.lineTo(cx + w * 0.52f, bottom);
+            right.lineTo(cx + w * 0.06f, bottom);
+            right.close();
+            canvas.drawPath(left, paint);
+            canvas.drawPath(right, paint);
+        }
+
+        private void drawOpenLayer(Canvas canvas, float cx, float y, float bottom, float w, int color) {
+            drawBlazer(canvas, cx, y, bottom, w, color);
+        }
+
+        private void drawRobe(Canvas canvas, float cx, float y, float bottom, float w, int color) {
+            setColor(color, 180);
+            Path robe = new Path();
+            robe.moveTo(cx - w * 0.52f, y);
+            robe.lineTo(cx + w * 0.52f, y);
+            robe.lineTo(cx + w * 0.70f, bottom);
+            robe.lineTo(cx + w * 0.16f, bottom);
+            robe.lineTo(cx, y + 80);
+            robe.lineTo(cx - w * 0.16f, bottom);
+            robe.lineTo(cx - w * 0.70f, bottom);
+            robe.close();
+            canvas.drawPath(robe, paint);
+        }
+
+        private void drawOpenResortShirt(Canvas canvas, float cx, float y, float bottom, float w, int color) {
+            drawBlazer(canvas, cx, y, bottom, w, color);
+        }
+
+        private void drawHoodie(Canvas canvas, float cx, float y, float bottom, float w, int color, boolean open) {
+            setColor(color, 226);
+            canvas.drawRoundRect(new RectF(cx - w * 0.58f, y + 26, cx + w * 0.58f, bottom), 26, 26, paint);
+            canvas.drawOval(new RectF(cx - w * 0.34f, y, cx + w * 0.34f, y + 70), paint);
+            if (open) {
+                paint.setColor(Color.argb(120, 255, 255, 255));
+                canvas.drawRoundRect(new RectF(cx - 4, y + 38, cx + 4, bottom), 4, 4, paint);
+            }
+        }
+
+        private void drawCroppedJacket(Canvas canvas, float cx, float y, float bottom, float w, int color) {
+            drawBlazer(canvas, cx, y, bottom, w, color);
+        }
+
+        private void drawOpenCollarShirt(Canvas canvas, float cx, float y, float bottom, float w, int color) {
+            drawTee(canvas, cx, y, bottom, w, color);
+            setColor(Color.rgb(244, 236, 220), 70);
+            Path v = triangle(cx, y + 58, cx - w * 0.22f, y + 6, cx + w * 0.22f, y + 6);
+            canvas.drawPath(v, paint);
+        }
+
+        private void drawLegBase(Canvas canvas, float cx, float hipY, float kneeY, float ankleY, float w) {
+            setColor(Color.rgb(224, 178, 141), 50);
+            canvas.drawRoundRect(new RectF(cx - w * 0.38f, hipY, cx - w * 0.08f, ankleY), 24, 24, paint);
+            canvas.drawRoundRect(new RectF(cx + w * 0.08f, hipY, cx + w * 0.38f, ankleY), 24, 24, paint);
+        }
+
+        private void drawSneakers(Canvas canvas, float cx, float y, float w, int color) {
+            setColor(color, 240);
+            canvas.drawOval(new RectF(cx - w * 0.72f, y - 10, cx - w * 0.08f, y + 12), paint);
+            canvas.drawOval(new RectF(cx + w * 0.08f, y - 10, cx + w * 0.72f, y + 12), paint);
+        }
+
+        private void drawSandals(Canvas canvas, float cx, float y, float w, int color) {
+            drawSneakers(canvas, cx, y, w * 0.86f, color);
+        }
+
+        private void drawLoafers(Canvas canvas, float cx, float y, float w, int color) {
+            drawSneakers(canvas, cx, y, w, color);
+        }
+
+        private void drawHeels(Canvas canvas, float cx, float y, float w, int color) {
+            drawSneakers(canvas, cx, y, w * 0.78f, color);
+        }
+
+        private void drawAccessories(Canvas canvas, float cx, float shoulderY, float hipY, float ankleY, float w) {
+            setColor(outfit.accentColor, 230);
+            canvas.drawCircle(cx + w * 0.92f, shoulderY + 12, 8, paint);
+            canvas.drawRoundRect(new RectF(cx + w * 0.72f, hipY - 12, cx + w * 1.06f, hipY + 34), 10, 10, paint);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(3);
+            canvas.drawArc(new RectF(cx - w * 1.06f, hipY - 18, cx - w * 0.56f, hipY + 38), 200, 170, false, paint);
+            paint.setStyle(Paint.Style.FILL);
+        }
+
+        private void drawVNeck(Canvas canvas, float cx, float y, float size) {
+            setColor(Color.argb(90, 255, 255, 255), 90);
+            Path v = triangle(cx, y + size * 1.45f, cx - size, y, cx + size, y);
+            canvas.drawPath(v, paint);
+        }
+
+        private Path triangle(float ax, float ay, float bx, float by, float cx, float cy) {
+            Path p = new Path();
+            p.moveTo(ax, ay);
+            p.lineTo(bx, by);
+            p.lineTo(cx, cy);
+            p.close();
+            return p;
+        }
+
+        private void setColor(int color, int alpha) {
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color)));
+        }
+
+        private void stroke(Canvas canvas, Path path) {
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(2);
+            paint.setColor(Color.argb(46, 20, 20, 20));
+            canvas.drawPath(path, paint);
+            paint.setStyle(Paint.Style.FILL);
         }
     }
 
