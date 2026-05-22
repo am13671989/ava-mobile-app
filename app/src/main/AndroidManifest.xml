@@ -8,6 +8,7 @@
         android:icon="@drawable/outfit_logo"
         android:roundIcon="@drawable/outfit_logo"
         android:label="AI Wardrobe"
+        android:usesCleartextTraffic="true"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <activity
