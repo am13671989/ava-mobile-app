@@ -101,9 +101,11 @@ public class MainActivity extends Activity {
     private String virtualTryOnStatus = "Choose a model, then generate AI virtual try-on.";
     private String virtualTryOnKey = "";
     private int selectedVtonModelIndex = 0;
+    private int selectedFitPartIndex = 0;
     private final String[] sexOptions = {"Woman", "Man"};
     private final String[] styleOptions = {"Classic", "Warm", "Sport", "Elegant", "Street", "Minimal"};
     private final String[] vtonModelOptions = {"OOTDiffusion", "IDM-VTON", "VITON-HD", "StableVITON", "HR-VITON"};
+    private final String[] fitPartOptions = {"Upper body", "Lower body"};
     private final ArrayList<SavedClothingItem> savedClothingItems = new ArrayList<>();
 
     @Override
@@ -1577,29 +1579,34 @@ public class MainActivity extends Activity {
         preview.setPadding(dp(10), dp(10), dp(10), dp(10));
         preview.setBackground(round(BLUSH, 16, Color.argb(70, 255, 255, 255)));
 
-        if (virtualTryOnBitmap != null && virtualTryOnKey.equals(currentTryOnKey(recommendation))) {
-            ImageView result = new ImageView(this);
-            result.setImageBitmap(virtualTryOnBitmap);
-            result.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            result.setAdjustViewBounds(true);
-            result.setBackground(round(SURFACE, 14, LINE));
-            preview.addView(result, new LinearLayout.LayoutParams(-1, dp(320)));
-        } else {
-            preview.addView(tryOnInputPreview(recommendation));
-        }
+        Bitmap avatar = personPhoto != null
+                ? personPhoto
+                : BitmapFactory.decodeResource(getResources(), currentAvatarResource());
+        Bitmap garment = currentFittingGarment(recommendation);
+        LocalBodyFitView fitView = new LocalBodyFitView(this, avatar, garment, selectedFitPartIndex, currentFitPartLabel(), recommendation.title);
+        preview.addView(fitView, new LinearLayout.LayoutParams(-1, dp(330)));
         preview.addView(spacer(10));
-        preview.addView(label(recommendation.title + " | " + currentVtonModel(), 18, INK, true));
-        preview.addView(label(virtualTryOnStatus, 14, MUTED, false));
+        preview.addView(label(recommendation.title + " | " + currentFitPartLabel(), 18, INK, true));
+        preview.addView(label("Local fitting mode: the app uses the selected avatar body frame and fits the chosen clothing image into the " + currentFitPartLabel().toLowerCase(Locale.US) + " area.", 14, MUTED, false));
         preview.addView(spacer(10));
         preview.addView(outfitPreview(recommendation));
-        preview.addView(section("Virtual try-on model"));
-        preview.addView(vtonModelSelector());
-        Button generate = button(virtualTryOnLoading ? "Generating..." : "Generate AI Try-On", FOREST, Color.WHITE);
-        generate.setEnabled(!virtualTryOnLoading);
-        generate.setOnClickListener(v -> requestVirtualTryOn(recommendation));
+        preview.addView(section("Body part to fit"));
+        preview.addView(fitPartSelector());
+        Button generate = button("Apply Local Fit", FOREST, Color.WHITE);
+        generate.setOnClickListener(v -> {
+            resetVirtualTryOn("Local fit updated for " + currentFitPartLabel().toLowerCase(Locale.US) + ".");
+            renderTab(0);
+        });
         preview.addView(spacer(10));
         preview.addView(generate, new LinearLayout.LayoutParams(-1, dp(52)));
         return preview;
+    }
+
+    private Bitmap currentFittingGarment(OutfitRecommendation recommendation) {
+        if (extractedClothingImage != null) {
+            return extractedClothingImage;
+        }
+        return BitmapFactory.decodeResource(getResources(), sampleOutfitSetResource(recommendation));
     }
 
     private LinearLayout tryOnInputPreview(OutfitRecommendation recommendation) {
@@ -1672,6 +1679,37 @@ public class MainActivity extends Activity {
         LinearLayout wrap = new LinearLayout(this);
         wrap.addView(scroll);
         return wrap;
+    }
+
+    private LinearLayout fitPartSelector() {
+        HorizontalScrollView scroll = new HorizontalScrollView(this);
+        scroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        for (int i = 0; i < fitPartOptions.length; i++) {
+            final int index = i;
+            boolean selected = selectedFitPartIndex == i;
+            TextView chip = label(fitPartOptions[i], 14, selected ? Color.WHITE : INK, true);
+            chip.setGravity(Gravity.CENTER);
+            chip.setPadding(dp(16), dp(9), dp(16), dp(9));
+            chip.setBackground(round(selected ? FOREST : SURFACE, 22, selected ? FOREST : LINE));
+            chip.setOnClickListener(v -> {
+                selectedFitPartIndex = index;
+                resetVirtualTryOn("Selected " + currentFitPartLabel().toLowerCase(Locale.US) + " fitting frame.");
+                renderTab(0);
+            });
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-2, -2);
+            params.setMargins(0, 0, dp(9), dp(8));
+            row.addView(chip, params);
+        }
+        scroll.addView(row);
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.addView(scroll);
+        return wrap;
+    }
+
+    private String currentFitPartLabel() {
+        return fitPartOptions[Math.max(0, Math.min(selectedFitPartIndex, fitPartOptions.length - 1))];
     }
 
     private String currentVtonModel() {
@@ -2101,6 +2139,98 @@ public class MainActivity extends Activity {
             this.lookKind = lookKind;
             this.woman = woman;
             this.reason = reason;
+        }
+    }
+
+    private static class LocalBodyFitView extends View {
+        private final Bitmap avatar;
+        private final Bitmap garment;
+        private final int fitPartIndex;
+        private final String fitPartLabel;
+        private final String outfitTitle;
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        LocalBodyFitView(Context context, Bitmap avatar, Bitmap garment, int fitPartIndex, String fitPartLabel, String outfitTitle) {
+            super(context);
+            this.avatar = avatar;
+            this.garment = garment;
+            this.fitPartIndex = fitPartIndex;
+            this.fitPartLabel = fitPartLabel;
+            this.outfitTitle = outfitTitle;
+            textPaint.setColor(Color.rgb(32, 36, 33));
+            textPaint.setTextAlign(Paint.Align.CENTER);
+            textPaint.setTypeface(Typeface.DEFAULT_BOLD);
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            int width = getWidth();
+            int height = getHeight();
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.rgb(255, 252, 247));
+            canvas.drawRoundRect(new RectF(0, 0, width, height), 28, 28, paint);
+
+            Rect avatarFrame = new Rect(Math.round(width * 0.22f), Math.round(height * 0.06f), Math.round(width * 0.78f), Math.round(height * 0.88f));
+            if (avatar != null) {
+                canvas.drawBitmap(avatar, null, avatarFrame, paint);
+            }
+
+            Rect bodyFrame = selectedBodyFrame(avatarFrame);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.argb(42, 54, 88, 76));
+            canvas.drawRoundRect(new RectF(bodyFrame), 18, 18, paint);
+
+            if (garment != null) {
+                int save = canvas.save();
+                canvas.clipRect(bodyFrame);
+                Rect garmentFrame = fittedGarmentFrame(bodyFrame, garment);
+                paint.setAlpha(218);
+                canvas.drawBitmap(garment, null, garmentFrame, paint);
+                paint.setAlpha(255);
+                canvas.restoreToCount(save);
+            }
+
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(5);
+            paint.setColor(Color.rgb(54, 88, 76));
+            canvas.drawRoundRect(new RectF(bodyFrame), 18, 18, paint);
+            paint.setStyle(Paint.Style.FILL);
+
+            textPaint.setTextSize(Math.max(18, width * 0.04f));
+            canvas.drawText(fitPartLabel + " fitting frame", width * 0.50f, height * 0.78f, textPaint);
+            textPaint.setTextSize(Math.max(15, width * 0.032f));
+            textPaint.setColor(Color.rgb(114, 119, 111));
+            canvas.drawText(outfitTitle, width * 0.50f, height * 0.86f, textPaint);
+            textPaint.setColor(Color.rgb(32, 36, 33));
+        }
+
+        private Rect selectedBodyFrame(Rect avatarFrame) {
+            if (fitPartIndex == 1) {
+                int left = avatarFrame.left + Math.round(avatarFrame.width() * 0.28f);
+                int right = avatarFrame.right - Math.round(avatarFrame.width() * 0.28f);
+                int top = avatarFrame.top + Math.round(avatarFrame.height() * 0.50f);
+                int bottom = avatarFrame.top + Math.round(avatarFrame.height() * 0.88f);
+                return new Rect(left, top, right, bottom);
+            }
+            int left = avatarFrame.left + Math.round(avatarFrame.width() * 0.03f);
+            int right = avatarFrame.right - Math.round(avatarFrame.width() * 0.03f);
+            int top = avatarFrame.top + Math.round(avatarFrame.height() * 0.20f);
+            int bottom = avatarFrame.top + Math.round(avatarFrame.height() * 0.56f);
+            return new Rect(left, top, right, bottom);
+        }
+
+        private Rect fittedGarmentFrame(Rect bodyFrame, Bitmap bitmap) {
+            float scale = Math.max(
+                    bodyFrame.width() * 1.15f / bitmap.getWidth(),
+                    bodyFrame.height() * 1.15f / bitmap.getHeight()
+            );
+            int targetWidth = Math.max(1, Math.round(bitmap.getWidth() * scale));
+            int targetHeight = Math.max(1, Math.round(bitmap.getHeight() * scale));
+            int left = bodyFrame.centerX() - targetWidth / 2;
+            int top = bodyFrame.centerY() - targetHeight / 2;
+            return new Rect(left, top, left + targetWidth, top + targetHeight);
         }
     }
 
