@@ -108,3 +108,46 @@ Expected response:
   "source": "ootdiffusion"
 }
 ```
+
+## Local geometric try-on pipeline
+
+The file `virtual_tryon_pipeline.py` contains a local Computer Vision fallback for avatar fitting.
+It is designed for prototype use when hosted VTON models are unavailable.
+
+Features:
+
+```text
+BodyDetector          MediaPipe Pose, optional YOLO pose, silhouette fallback
+BodySegmenter         Binary body mask, torso mask, arm/occlusion mask, contours
+ClothingProcessor     Background removal, alpha crop, contour, neck anchor estimate
+GarmentFitter         Rotation-aware affine fitting and arm-aware compositing
+VirtualTryOnPipeline  Single-image and batch runner
+```
+
+Example:
+
+```python
+from virtual_tryon_pipeline import FitPart, VirtualTryOnPipeline
+
+pipeline = VirtualTryOnPipeline()
+result = pipeline.run_files(
+    avatar_path="avatar.png",
+    cloth_path="shirt.png",
+    output_path="avatar_with_shirt.png",
+    fit_part=FitPart.UPPER,
+)
+
+print(result.landmarks.confidence)
+print(result.landmarks.body_angle)
+```
+
+Optional upgrades:
+
+```text
+mediapipe       improves landmark detection
+ultralytics     enables YOLO pose fallback
+DensePose       improves body-surface mapping
+SAM 2           improves precise person/arm segmentation
+Detectron2      improves parsing and human-part segmentation
+IDM-VTON/CatVTON/Stable Diffusion VTON for photorealistic final try-on
+```
