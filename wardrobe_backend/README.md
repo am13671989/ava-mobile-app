@@ -148,6 +148,16 @@ OOTDIFFUSION_SAMPLE     default 1
 OOTDIFFUSION_TIMEOUT    default 600 seconds
 ```
 
+Local Windows install used on this computer:
+
+```text
+OOTDIFFUSION_REPO=C:\Users\Ali\Projects\OOTDiffusion
+OOTDIFFUSION_PYTHON=C:\Users\Ali\miniconda3\envs\ootd\python.exe
+```
+
+Important: the official OOTDiffusion code is CUDA-first and calls `torch.cuda.set_device`.
+If `torch.cuda.is_available()` is false, the environment can be installed and checked, but real generation needs an NVIDIA CUDA GPU or a hosted GPU server.
+
 Expected response:
 
 ```json
