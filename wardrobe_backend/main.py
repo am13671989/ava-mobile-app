@@ -357,8 +357,36 @@ def call_ootdiffusion_service(url: str, person: Image.Image, outfit: Image.Image
             model="OOTDiffusion",
             source=data.get("source", "ootdiffusion"),
         )
+    except requests.HTTPError as error:
+        detail = response_error_detail(error)
+        demo = compose_reference_try_on_demo(person, outfit, request, "OOTDiffusion")
+        return TryOnResponse(
+            image_base64=encode_png(demo),
+            message=f"OOTDiffusion backend failed: {detail}. Showing reference-set demo.",
+            model="OOTDiffusion",
+            source="reference-demo",
+        )
+    except Exception as error:
+        demo = compose_reference_try_on_demo(person, outfit, request, "OOTDiffusion")
+        return TryOnResponse(
+            image_base64=encode_png(demo),
+            message=f"OOTDiffusion backend error: {error.__class__.__name__}. Showing reference-set demo.",
+            model="OOTDiffusion",
+            source="reference-demo",
+        )
+
+
+def response_error_detail(error: requests.HTTPError) -> str:
+    response = error.response
+    if response is None:
+        return error.__class__.__name__
+    try:
+        data = response.json()
+        detail = data.get("detail") or data.get("message") or response.text
     except Exception:
-        return None
+        detail = response.text
+    detail = str(detail).replace("\n", " ").strip()
+    return detail[:260] if detail else f"HTTP {response.status_code}"
 
 
 def ootdiffusion_category(request: TryOnRequest) -> int:
