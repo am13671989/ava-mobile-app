@@ -52,6 +52,21 @@ class TryOnResponse(BaseModel):
     source: str
 
 
+class LocalFitRequest(BaseModel):
+    avatar_image_base64: str
+    cloth_image_base64: str
+    fit_part: str = "upper"
+    cloth_width_ratio: float = 0.95
+    cloth_y_ratio: float = 0.22
+    cloth_height_ratio: float = 0.62
+
+
+class LocalFitResponse(BaseModel):
+    image_base64: str
+    message: str
+    source: str
+
+
 @dataclass
 class Detection:
     label: str
@@ -163,11 +178,45 @@ def try_on(request: TryOnRequest):
     )
 
 
+@app.post("/local-fit", response_model=LocalFitResponse)
+def local_fit(request: LocalFitRequest):
+    try:
+        avatar = decode_image_rgba(request.avatar_image_base64)
+        cloth = decode_image_rgba(request.cloth_image_base64)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid local-fit image payload") from exc
+
+    try:
+        result = simple_upper_body_fit(
+            avatar,
+            cloth,
+            fit_part=request.fit_part,
+            cloth_width_ratio=request.cloth_width_ratio,
+            cloth_y_ratio=request.cloth_y_ratio,
+            cloth_height_ratio=request.cloth_height_ratio,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Local fit failed: {exc}") from exc
+
+    return LocalFitResponse(
+        image_base64=encode_png(result),
+        message="Local upper/lower body fitting completed with background removal and head/hair occlusion.",
+        source="local-fit",
+    )
+
+
 def decode_image(image_base64: str) -> Image.Image:
     if "," in image_base64:
         image_base64 = image_base64.split(",", 1)[1]
     raw = base64.b64decode(image_base64)
     return Image.open(io.BytesIO(raw)).convert("RGB")
+
+
+def decode_image_rgba(image_base64: str) -> Image.Image:
+    if "," in image_base64:
+        image_base64 = image_base64.split(",", 1)[1]
+    raw = base64.b64decode(image_base64)
+    return Image.open(io.BytesIO(raw)).convert("RGBA")
 
 
 def encode_png(image: Image.Image) -> str:
@@ -439,6 +488,104 @@ def replicate_garment_part(request: TryOnRequest) -> str:
 
 def image_data_uri(image: Image.Image) -> str:
     return "data:image/png;base64," + encode_png(image)
+
+
+def simple_upper_body_fit(
+    avatar: Image.Image,
+    cloth: Image.Image,
+    fit_part: str = "upper",
+    cloth_width_ratio: float = 0.95,
+    cloth_y_ratio: float = 0.22,
+    cloth_height_ratio: float = 0.62,
+) -> Image.Image:
+    avatar_rgba = np.array(avatar.convert("RGBA"), dtype=np.uint8)
+    cloth_rgba = np.array(cloth.convert("RGBA"), dtype=np.uint8)
+
+    if cloth_rgba[:, :, 3].min() >= 250:
+        cloth_rgba = remove_light_background_np(cloth_rgba)
+
+    cloth_rgba = crop_to_alpha_np(cloth_rgba)
+    avatar_h, avatar_w = avatar_rgba.shape[:2]
+
+    if fit_part.lower().startswith("lower"):
+        target_w = int(avatar_w * 0.72)
+        target_h = int(avatar_h * 0.44)
+        x = int((avatar_w - target_w) / 2)
+        y = int(avatar_h * 0.48)
+        protected_mask = np.zeros((avatar_h, avatar_w), dtype=np.uint8)
+    else:
+        target_w = int(avatar_w * cloth_width_ratio)
+        target_h = int(avatar_h * cloth_height_ratio)
+        x = int((avatar_w - target_w) / 2)
+        y = int(avatar_h * cloth_y_ratio)
+        protected_mask = create_head_hair_mask_np(avatar_rgba)
+
+    if cv2 is not None:
+        cloth_resized = cv2.resize(cloth_rgba, (target_w, target_h), interpolation=cv2.INTER_AREA)
+    else:
+        cloth_resized = np.array(Image.fromarray(cloth_rgba, "RGBA").resize((target_w, target_h), Image.Resampling.LANCZOS))
+
+    fitted = overlay_rgba_np(avatar_rgba, cloth_resized, x, y)
+    if protected_mask.any():
+        fitted = np.where(protected_mask[:, :, None] == 255, avatar_rgba, fitted)
+    return Image.fromarray(fitted, "RGBA")
+
+
+def remove_light_background_np(rgba: np.ndarray, threshold: int = 245) -> np.ndarray:
+    rgb = rgba[:, :, :3]
+    if cv2 is not None:
+        gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
+        alpha = np.where(gray < threshold, 255, 0).astype(np.uint8)
+        alpha = cv2.GaussianBlur(alpha, (5, 5), 0)
+    else:
+        gray = rgb.mean(axis=2)
+        alpha = np.where(gray < threshold, 255, 0).astype(np.uint8)
+    output = rgba.copy()
+    output[:, :, 3] = alpha
+    return output
+
+
+def crop_to_alpha_np(rgba: np.ndarray) -> np.ndarray:
+    alpha = rgba[:, :, 3]
+    ys, xs = np.where(alpha > 8)
+    if len(xs) == 0 or len(ys) == 0:
+        return rgba
+    left, right = xs.min(), xs.max() + 1
+    top, bottom = ys.min(), ys.max() + 1
+    return rgba[top:bottom, left:right]
+
+
+def overlay_rgba_np(background: np.ndarray, foreground: np.ndarray, x: int, y: int) -> np.ndarray:
+    bg = background.copy()
+    fg_h, fg_w = foreground.shape[:2]
+    bg_h, bg_w = bg.shape[:2]
+    x1 = max(0, x)
+    y1 = max(0, y)
+    x2 = min(bg_w, x + fg_w)
+    y2 = min(bg_h, y + fg_h)
+    if x1 >= x2 or y1 >= y2:
+        return bg
+    fx1 = x1 - x
+    fy1 = y1 - y
+    fx2 = fx1 + (x2 - x1)
+    fy2 = fy1 + (y2 - y1)
+    fg_crop = foreground[fy1:fy2, fx1:fx2].astype(np.float32)
+    alpha = fg_crop[:, :, 3:4] / 255.0
+    bg_crop = bg[y1:y2, x1:x2].astype(np.float32)
+    bg_crop[:, :, :3] = alpha * fg_crop[:, :, :3] + (1.0 - alpha) * bg_crop[:, :, :3]
+    bg_crop[:, :, 3:4] = np.maximum(bg_crop[:, :, 3:4], fg_crop[:, :, 3:4] * alpha)
+    bg[y1:y2, x1:x2] = np.clip(bg_crop, 0, 255).astype(np.uint8)
+    return bg
+
+
+def create_head_hair_mask_np(avatar_rgba: np.ndarray) -> np.ndarray:
+    height, width = avatar_rgba.shape[:2]
+    mask = np.zeros((height, width), dtype=np.uint8)
+    mask[: int(height * 0.38), :] = 255
+    mask[: int(height * 0.55), : int(width * 0.28)] = 255
+    mask[: int(height * 0.55), int(width * 0.72):] = 255
+    alpha = avatar_rgba[:, :, 3]
+    return np.where(alpha > 8, mask, 0).astype(np.uint8)
 
 
 def compose_reference_try_on_demo(person: Image.Image, outfit: Image.Image, request: TryOnRequest, model: str) -> Image.Image:

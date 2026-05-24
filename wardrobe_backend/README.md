@@ -151,3 +151,26 @@ SAM 2           improves precise person/arm segmentation
 Detectron2      improves parsing and human-part segmentation
 IDM-VTON/CatVTON/Stable Diffusion VTON for photorealistic final try-on
 ```
+
+## Simple local shirt fitting endpoint
+
+For fast prototype fitting without GPU VTON, use:
+
+```text
+POST /local-fit
+```
+
+Request:
+
+```json
+{
+  "avatar_image_base64": "...",
+  "cloth_image_base64": "...",
+  "fit_part": "upper",
+  "cloth_width_ratio": 0.95,
+  "cloth_y_ratio": 0.22,
+  "cloth_height_ratio": 0.62
+}
+```
+
+The endpoint removes light clothing backgrounds, crops to alpha, overlays the garment, and restores the avatar head/hair layer on top.
