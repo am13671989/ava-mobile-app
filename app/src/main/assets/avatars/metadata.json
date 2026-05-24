@@ -1,0 +1,398 @@
+[
+  {
+    "avatar": 1,
+    "bbox": [
+      57,
+      50,
+      123,
+      398
+    ],
+    "crop_bbox_with_padding": [
+      45,
+      38,
+      147,
+      422
+    ],
+    "split_y_in_original": 268,
+    "split_ratio": 0.55,
+    "files": {
+      "full": "/mnt/data/separated_avatars/full/avatar_01.png",
+      "upper": "/mnt/data/separated_avatars/upper_body/avatar_01_upper.png",
+      "lower": "/mnt/data/separated_avatars/lower_body/avatar_01_lower.png"
+    }
+  },
+  {
+    "avatar": 2,
+    "bbox": [
+      196,
+      51,
+      123,
+      397
+    ],
+    "crop_bbox_with_padding": [
+      184,
+      39,
+      147,
+      421
+    ],
+    "split_y_in_original": 269,
+    "split_ratio": 0.55,
+    "files": {
+      "full": "/mnt/data/separated_avatars/full/avatar_02.png",
+      "upper": "/mnt/data/separated_avatars/upper_body/avatar_02_upper.png",
+      "lower": "/mnt/data/separated_avatars/lower_body/avatar_02_lower.png"
+    }
+  },
+  {
+    "avatar": 3,
+    "bbox": [
+      340,
+      51,
+      138,
+      397
+    ],
+    "crop_bbox_with_padding": [
+      328,
+      39,
+      162,
+      421
+    ],
+    "split_y_in_original": 269,
+    "split_ratio": 0.55,
+    "files": {
+      "full": "/mnt/data/separated_avatars/full/avatar_03.png",
+      "upper": "/mnt/data/separated_avatars/upper_body/avatar_03_upper.png",
+      "lower": "/mnt/data/separated_avatars/lower_body/avatar_03_lower.png"
+    }
+  },
+  {
+    "avatar": 4,
+    "bbox": [
+      492,
+      53,
+      141,
+      396
+    ],
+    "crop_bbox_with_padding": [
+      480,
+      41,
+      165,
+      420
+    ],
+    "split_y_in_original": 270,
+    "split_ratio": 0.55,
+    "files": {
+      "full": "/mnt/data/separated_avatars/full/avatar_04.png",
+      "upper": "/mnt/data/separated_avatars/upper_body/avatar_04_upper.png",
+      "lower": "/mnt/data/separated_avatars/lower_body/avatar_04_lower.png"
+    }
+  },
+  {
+    "avatar": 5,
+    "bbox": [
+      648,
+      55,
+      136,
+      393
+    ],
+    "crop_bbox_with_padding": [
+      636,
+      43,
+      160,
+      417
+    ],
+    "split_y_in_original": 271,
+    "split_ratio": 0.55,
+    "files": {
+      "full": "/mnt/data/separated_avatars/full/avatar_05.png",
+      "upper": "/mnt/data/separated_avatars/upper_body/avatar_05_upper.png",
+      "lower": "/mnt/data/separated_avatars/lower_body/avatar_05_lower.png"
+    }
+  },
+  {
+    "avatar": 6,
+    "bbox": [
+      812,
+      50,
+      141,
+      398
+    ],
+    "crop_bbox_with_padding": [
+      800,
+      38,
+      165,
+      422
+    ],
+    "split_y_in_original": 268,
+    "split_ratio": 0.55,
+    "files": {
+      "full": "/mnt/data/separated_avatars/full/avatar_06.png",
+      "upper": "/mnt/data/separated_avatars/upper_body/avatar_06_upper.png",
+      "lower": "/mnt/data/separated_avatars/lower_body/avatar_06_lower.png"
+    }
+  },
+  {
+    "avatar": 7,
+    "bbox": [
+      66,
+      464,
+      110,
+      385
+    ],
+    "crop_bbox_with_padding": [
+      54,
+      452,
+      134,
+      409
+    ],
+    "split_y_in_original": 675,
+    "split_ratio": 0.55,
+    "files": {
+      "full": "/mnt/data/separated_avatars/full/avatar_07.png",
+      "upper": "/mnt/data/separated_avatars/upper_body/avatar_07_upper.png",
+      "lower": "/mnt/data/separated_avatars/lower_body/avatar_07_lower.png"
+    }
+  },
+  {
+    "avatar": 8,
+    "bbox": [
+      204,
+      467,
+      114,
+      381
+    ],
+    "crop_bbox_with_padding": [
+      192,
+      455,
+      138,
+      405
+    ],
+    "split_y_in_original": 676,
+    "split_ratio": 0.55,
+    "files": {
+      "full": "/mnt/data/separated_avatars/full/avatar_08.png",
+      "upper": "/mnt/data/separated_avatars/upper_body/avatar_08_upper.png",
+      "lower": "/mnt/data/separated_avatars/lower_body/avatar_08_lower.png"
+    }
+  },
+  {
+    "avatar": 9,
+    "bbox": [
+      351,
+      464,
+      125,
+      383
+    ],
+    "crop_bbox_with_padding": [
+      339,
+      452,
+      149,
+      407
+    ],
+    "split_y_in_original": 674,
+    "split_ratio": 0.55,
+    "files": {
+      "full": "/mnt/data/separated_avatars/full/avatar_09.png",
+      "upper": "/mnt/data/separated_avatars/upper_body/avatar_09_upper.png",
+      "lower": "/mnt/data/separated_avatars/lower_body/avatar_09_lower.png"
+    }
+  },
+  {
+    "avatar": 10,
+    "bbox": [
+      507,
+      464,
+      119,
+      385
+    ],
+    "crop_bbox_with_padding": [
+      495,
+      452,
+      143,
+      409
+    ],
+    "split_y_in_original": 675,
+    "split_ratio": 0.55,
+    "files": {
+      "full": "/mnt/data/separated_avatars/full/avatar_10.png",
+      "upper": "/mnt/data/separated_avatars/upper_body/avatar_10_upper.png",
+      "lower": "/mnt/data/separated_avatars/lower_body/avatar_10_lower.png"
+    }
+  },
+  {
+    "avatar": 11,
+    "bbox": [
+      648,
+      464,
+      146,
+      385
+    ],
+    "crop_bbox_with_padding": [
+      636,
+      452,
+      170,
+      409
+    ],
+    "split_y_in_original": 675,
+    "split_ratio": 0.55,
+    "files": {
+      "full": "/mnt/data/separated_avatars/full/avatar_11.png",
+      "upper": "/mnt/data/separated_avatars/upper_body/avatar_11_upper.png",
+      "lower": "/mnt/data/separated_avatars/lower_body/avatar_11_lower.png"
+    }
+  },
+  {
+    "avatar": 12,
+    "bbox": [
+      810,
+      464,
+      148,
+      385
+    ],
+    "crop_bbox_with_padding": [
+      798,
+      452,
+      172,
+      409
+    ],
+    "split_y_in_original": 675,
+    "split_ratio": 0.55,
+    "files": {
+      "full": "/mnt/data/separated_avatars/full/avatar_12.png",
+      "upper": "/mnt/data/separated_avatars/upper_body/avatar_12_upper.png",
+      "lower": "/mnt/data/separated_avatars/lower_body/avatar_12_lower.png"
+    }
+  },
+  {
+    "avatar": 13,
+    "bbox": [
+      66,
+      876,
+      118,
+      388
+    ],
+    "crop_bbox_with_padding": [
+      54,
+      864,
+      142,
+      412
+    ],
+    "split_y_in_original": 1089,
+    "split_ratio": 0.55,
+    "files": {
+      "full": "/mnt/data/separated_avatars/full/avatar_13.png",
+      "upper": "/mnt/data/separated_avatars/upper_body/avatar_13_upper.png",
+      "lower": "/mnt/data/separated_avatars/lower_body/avatar_13_lower.png"
+    }
+  },
+  {
+    "avatar": 14,
+    "bbox": [
+      208,
+      872,
+      121,
+      391
+    ],
+    "crop_bbox_with_padding": [
+      196,
+      860,
+      145,
+      415
+    ],
+    "split_y_in_original": 1087,
+    "split_ratio": 0.55,
+    "files": {
+      "full": "/mnt/data/separated_avatars/full/avatar_14.png",
+      "upper": "/mnt/data/separated_avatars/upper_body/avatar_14_upper.png",
+      "lower": "/mnt/data/separated_avatars/lower_body/avatar_14_lower.png"
+    }
+  },
+  {
+    "avatar": 15,
+    "bbox": [
+      351,
+      874,
+      128,
+      390
+    ],
+    "crop_bbox_with_padding": [
+      339,
+      862,
+      152,
+      414
+    ],
+    "split_y_in_original": 1088,
+    "split_ratio": 0.55,
+    "files": {
+      "full": "/mnt/data/separated_avatars/full/avatar_15.png",
+      "upper": "/mnt/data/separated_avatars/upper_body/avatar_15_upper.png",
+      "lower": "/mnt/data/separated_avatars/lower_body/avatar_15_lower.png"
+    }
+  },
+  {
+    "avatar": 16,
+    "bbox": [
+      504,
+      873,
+      123,
+      391
+    ],
+    "crop_bbox_with_padding": [
+      492,
+      861,
+      147,
+      415
+    ],
+    "split_y_in_original": 1088,
+    "split_ratio": 0.55,
+    "files": {
+      "full": "/mnt/data/separated_avatars/full/avatar_16.png",
+      "upper": "/mnt/data/separated_avatars/upper_body/avatar_16_upper.png",
+      "lower": "/mnt/data/separated_avatars/lower_body/avatar_16_lower.png"
+    }
+  },
+  {
+    "avatar": 17,
+    "bbox": [
+      648,
+      876,
+      151,
+      388
+    ],
+    "crop_bbox_with_padding": [
+      636,
+      864,
+      175,
+      412
+    ],
+    "split_y_in_original": 1089,
+    "split_ratio": 0.55,
+    "files": {
+      "full": "/mnt/data/separated_avatars/full/avatar_17.png",
+      "upper": "/mnt/data/separated_avatars/upper_body/avatar_17_upper.png",
+      "lower": "/mnt/data/separated_avatars/lower_body/avatar_17_lower.png"
+    }
+  },
+  {
+    "avatar": 18,
+    "bbox": [
+      824,
+      874,
+      130,
+      389
+    ],
+    "crop_bbox_with_padding": [
+      812,
+      862,
+      154,
+      413
+    ],
+    "split_y_in_original": 1087,
+    "split_ratio": 0.55,
+    "files": {
+      "full": "/mnt/data/separated_avatars/full/avatar_18.png",
+      "upper": "/mnt/data/separated_avatars/upper_body/avatar_18_upper.png",
+      "lower": "/mnt/data/separated_avatars/lower_body/avatar_18_lower.png"
+    }
+  }
+]

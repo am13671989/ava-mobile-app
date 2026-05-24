@@ -107,6 +107,7 @@ public class MainActivity extends Activity {
     private final String[] vtonModelOptions = {"OOTDiffusion", "IDM-VTON", "VITON-HD", "StableVITON", "HR-VITON"};
     private final String[] fitPartOptions = {"Upper body", "Lower body"};
     private final ArrayList<SavedClothingItem> savedClothingItems = new ArrayList<>();
+    private final ArrayList<AvatarOption> avatarOptions = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -115,6 +116,7 @@ public class MainActivity extends Activity {
             getWindow().setStatusBarColor(CANVAS);
             getWindow().setNavigationBarColor(SURFACE);
         }
+        loadAvatarOptions();
         showOnboarding();
     }
 
@@ -603,7 +605,7 @@ public class MainActivity extends Activity {
 
             Bitmap person = personPhoto != null
                     ? personPhoto
-                    : BitmapFactory.decodeResource(getResources(), currentAvatarResource());
+                    : currentAvatarBitmap("full");
             Bitmap outfitSet = BitmapFactory.decodeResource(getResources(), sampleOutfitSetResource(recommendation));
 
             JSONObject request = new JSONObject();
@@ -1387,23 +1389,39 @@ public class MainActivity extends Activity {
     }
 
     private LinearLayout avatarSelector(boolean returnHomeOnSelect) {
-        int[] avatars = currentAvatarResources();
-        HorizontalScrollView scroll = new HorizontalScrollView(this);
-        scroll.setHorizontalScrollBarEnabled(false);
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        for (int i = 0; i < avatars.length; i++) {
+        ArrayList<AvatarOption> avatars = currentAvatarOptions();
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+        AvatarOption selected = currentAvatarOption();
+        if (selected != null) {
+            LinearLayout preview = panel(MIST);
+            preview.addView(label("Selected avatar", 16, INK, true));
+            ImageView selectedImage = new ImageView(this);
+            selectedImage.setImageBitmap(loadAssetBitmap(selected.fullBodyImage));
+            selectedImage.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            selectedImage.setAdjustViewBounds(true);
+            selectedImage.setBackground(round(SURFACE, 14, LINE));
+            selectedImage.setPadding(dp(6), dp(6), dp(6), dp(6));
+            preview.addView(selectedImage, new LinearLayout.LayoutParams(-1, dp(220)));
+            preview.addView(label(selected.label, 14, FOREST, true));
+            wrap.addView(preview);
+            wrap.addView(spacer(10));
+        }
+
+        GridLayout grid = new GridLayout(this);
+        grid.setColumnCount(3);
+        for (int i = 0; i < avatars.size(); i++) {
             final int index = i;
             LinearLayout card = panel(selectedAvatarIndex == i ? MIST : SURFACE);
             card.setGravity(Gravity.CENTER);
             ImageView avatar = new ImageView(this);
-            avatar.setImageResource(avatars[i]);
+            avatar.setImageBitmap(loadAssetBitmap(avatars.get(i).fullBodyImage));
             avatar.setScaleType(ImageView.ScaleType.FIT_CENTER);
             avatar.setAdjustViewBounds(true);
             avatar.setBackground(round(BLUSH, 16, selectedAvatarIndex == i ? FOREST : LINE));
             avatar.setPadding(dp(6), dp(6), dp(6), dp(6));
-            card.addView(avatar, new LinearLayout.LayoutParams(dp(96), dp(140)));
-            card.addView(label(currentSexLabel() + " " + (index + 1), 13, INK, true));
+            card.addView(avatar, new LinearLayout.LayoutParams(-1, dp(128)));
+            card.addView(label(avatars.get(i).label, 12, INK, true));
             card.setOnClickListener(v -> {
                 selectedAvatarIndex = index;
                 personPhoto = null;
@@ -1414,13 +1432,12 @@ public class MainActivity extends Activity {
                     showOnboarding();
                 }
             });
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(128), dp(196));
-            params.setMargins(0, 0, dp(10), dp(8));
-            row.addView(card, params);
+            GridLayout.LayoutParams params = new GridLayout.LayoutParams();
+            params.width = Math.max(dp(96), (screenWidth() - dp(72)) / 3);
+            params.setMargins(0, 0, dp(8), dp(8));
+            grid.addView(card, params);
         }
-        scroll.addView(row);
-        LinearLayout wrap = new LinearLayout(this);
-        wrap.addView(scroll);
+        wrap.addView(grid);
         return wrap;
     }
 
@@ -1488,37 +1505,148 @@ public class MainActivity extends Activity {
         return wrap;
     }
 
-    private int[] currentAvatarResources() {
-        if (selectedSexIndex == 1) {
-            return new int[]{
-                    R.drawable.man_avatar_1,
-                    R.drawable.man_avatar_2,
-                    R.drawable.man_avatar_3,
-                    R.drawable.man_avatar_4,
-                    R.drawable.man_avatar_5,
-                    R.drawable.man_avatar_6,
-                    R.drawable.man_avatar_7,
-                    R.drawable.man_avatar_8,
-                    R.drawable.man_avatar_9
-            };
+    private ArrayList<AvatarOption> currentAvatarOptions() {
+        ArrayList<AvatarOption> filtered = new ArrayList<>();
+        boolean wantsWoman = selectedSexIndex == 0;
+        for (AvatarOption option : avatarOptions) {
+            if (option.woman == wantsWoman) {
+                filtered.add(option);
+            }
         }
-        return new int[]{
-                R.drawable.woman_avatar_1,
-                R.drawable.woman_avatar_2,
-                R.drawable.woman_avatar_3,
-                R.drawable.woman_avatar_4,
-                R.drawable.woman_avatar_5,
-                R.drawable.woman_avatar_6,
-                R.drawable.woman_avatar_7,
-                R.drawable.woman_avatar_8,
-                R.drawable.woman_avatar_9
-        };
+        if (filtered.isEmpty()) {
+            filtered.addAll(avatarOptions);
+        }
+        if (selectedAvatarIndex >= filtered.size()) {
+            selectedAvatarIndex = 0;
+        }
+        return filtered;
     }
 
-    private int currentAvatarResource() {
-        int[] avatars = currentAvatarResources();
-        int index = Math.max(0, Math.min(selectedAvatarIndex, avatars.length - 1));
-        return avatars[index];
+    private AvatarOption currentAvatarOption() {
+        ArrayList<AvatarOption> options = currentAvatarOptions();
+        if (options.isEmpty()) return null;
+        int index = Math.max(0, Math.min(selectedAvatarIndex, options.size() - 1));
+        return options.get(index);
+    }
+
+    private Bitmap currentAvatarBitmap(String part) {
+        AvatarOption option = currentAvatarOption();
+        if (option != null) {
+            String path = option.fullBodyImage;
+            if ("upper".equals(part) && option.upperBodyImage != null) path = option.upperBodyImage;
+            if ("lower".equals(part) && option.lowerBodyImage != null) path = option.lowerBodyImage;
+            Bitmap bitmap = loadAssetBitmap(path);
+            if (bitmap != null) return bitmap;
+        }
+        return BitmapFactory.decodeResource(getResources(), fallbackAvatarResource());
+    }
+
+    private int fallbackAvatarResource() {
+        if (selectedSexIndex == 1) return R.drawable.man_avatar_1;
+        return R.drawable.woman_avatar_1;
+    }
+
+    private void loadAvatarOptions() {
+        avatarOptions.clear();
+        try {
+            String jsonText = readAssetText("avatars/metadata.json");
+            JSONArray array = new JSONArray(jsonText);
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject item = array.getJSONObject(i);
+                int number = item.optInt("avatar", i + 1);
+                JSONObject files = item.optJSONObject("files");
+                String full = files == null ? "" : normalizeAvatarAssetPath(files.optString("full", ""));
+                String upper = files == null ? "" : normalizeAvatarAssetPath(files.optString("upper", ""));
+                String lower = files == null ? "" : normalizeAvatarAssetPath(files.optString("lower", ""));
+                if (full.isEmpty()) full = avatarAssetPath("full", number, "");
+                if (upper.isEmpty()) upper = avatarAssetPath("upper_body", number, "_upper");
+                if (lower.isEmpty()) lower = avatarAssetPath("lower_body", number, "_lower");
+                boolean woman = isWomanAvatarNumber(number);
+                int labelIndex = avatarLabelIndex(number, woman);
+                avatarOptions.add(new AvatarOption(
+                        "avatar_" + String.format(Locale.US, "%02d", number),
+                        (woman ? "Woman " : "Man ") + labelIndex,
+                        full,
+                        upper,
+                        lower,
+                        woman
+                ));
+            }
+        } catch (Exception ignored) {
+            generateAvatarOptionsFromFilenames();
+        }
+        if (avatarOptions.isEmpty()) {
+            generateAvatarOptionsFromFilenames();
+        }
+    }
+
+    private void generateAvatarOptionsFromFilenames() {
+        avatarOptions.clear();
+        for (int number = 1; number <= 18; number++) {
+            boolean woman = isWomanAvatarNumber(number);
+            avatarOptions.add(new AvatarOption(
+                    "avatar_" + String.format(Locale.US, "%02d", number),
+                    (woman ? "Woman " : "Man ") + avatarLabelIndex(number, woman),
+                    avatarAssetPath("full", number, ""),
+                    avatarAssetPath("upper_body", number, "_upper"),
+                    avatarAssetPath("lower_body", number, "_lower"),
+                    woman
+            ));
+        }
+    }
+
+    private String avatarAssetPath(String folder, int number, String suffix) {
+        return "avatars/" + folder + "/avatar_" + String.format(Locale.US, "%02d", number) + suffix + ".png";
+    }
+
+    private String normalizeAvatarAssetPath(String raw) {
+        if (raw == null || raw.trim().isEmpty()) return "";
+        String clean = raw.replace("\\", "/");
+        int marker = clean.indexOf("separated_avatars/");
+        if (marker >= 0) {
+            clean = clean.substring(marker + "separated_avatars/".length());
+        }
+        while (clean.startsWith("/")) clean = clean.substring(1);
+        if (!clean.startsWith("avatars/")) {
+            clean = "avatars/" + clean;
+        }
+        return clean;
+    }
+
+    private boolean isWomanAvatarNumber(int number) {
+        return number <= 6 || (number >= 10 && number <= 12);
+    }
+
+    private int avatarLabelIndex(int number, boolean woman) {
+        if (woman) {
+            if (number <= 6) return number;
+            return number - 3;
+        }
+        if (number <= 9) return number - 6;
+        return number - 9;
+    }
+
+    private String readAssetText(String path) throws IOException {
+        InputStream stream = getAssets().open(path);
+        try {
+            return readStream(stream);
+        } finally {
+            stream.close();
+        }
+    }
+
+    private Bitmap loadAssetBitmap(String path) {
+        if (path == null || path.isEmpty()) return null;
+        try {
+            InputStream stream = getAssets().open(path);
+            try {
+                return BitmapFactory.decodeStream(stream);
+            } finally {
+                stream.close();
+            }
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private String currentSexLabel() {
@@ -1581,18 +1709,18 @@ public class MainActivity extends Activity {
 
         Bitmap avatar = personPhoto != null
                 ? personPhoto
-                : BitmapFactory.decodeResource(getResources(), currentAvatarResource());
+                : currentAvatarBitmap(selectedFitPartIndex == 0 ? "upper" : "lower");
         Bitmap garment = currentFittingGarment(recommendation);
         LocalBodyFitView fitView = new LocalBodyFitView(this, avatar, garment, selectedFitPartIndex, currentFitPartLabel(), recommendation.title);
         preview.addView(fitView, new LinearLayout.LayoutParams(-1, dp(330)));
         preview.addView(spacer(10));
         preview.addView(label(recommendation.title + " | " + currentFitPartLabel(), 18, INK, true));
-        preview.addView(label("Local fitting mode: the app uses the selected avatar body frame and fits the chosen clothing image into the " + currentFitPartLabel().toLowerCase(Locale.US) + " area.", 14, MUTED, false));
+        preview.addView(label("Body-frame mode: the app extracts the avatar body area and shows the frame that a clothing photo must fit.", 14, MUTED, false));
         preview.addView(spacer(10));
         preview.addView(outfitPreview(recommendation));
         preview.addView(section("Body part to fit"));
         preview.addView(fitPartSelector());
-        Button generate = button("Apply Local Fit", FOREST, Color.WHITE);
+        Button generate = button("Update Body Frame", FOREST, Color.WHITE);
         generate.setOnClickListener(v -> {
             resetVirtualTryOn("Local fit updated for " + currentFitPartLabel().toLowerCase(Locale.US) + ".");
             renderTab(0);
@@ -1616,7 +1744,7 @@ public class MainActivity extends Activity {
         if (personPhoto != null) {
             person.setImageBitmap(personPhoto);
         } else {
-            person.setImageResource(currentAvatarResource());
+            person.setImageBitmap(currentAvatarBitmap("full"));
         }
         person.setScaleType(ImageView.ScaleType.FIT_CENTER);
         person.setBackground(round(SURFACE, 14, LINE));
@@ -2178,25 +2306,7 @@ public class MainActivity extends Activity {
             }
 
             Rect bodyFrame = selectedBodyFrame(avatarFrame);
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.argb(42, 54, 88, 76));
-            canvas.drawRoundRect(new RectF(bodyFrame), 18, 18, paint);
-
-            if (garment != null) {
-                int save = canvas.save();
-                canvas.clipRect(bodyFrame);
-                Rect garmentFrame = fittedGarmentFrame(bodyFrame, garment);
-                paint.setAlpha(218);
-                canvas.drawBitmap(garment, null, garmentFrame, paint);
-                paint.setAlpha(255);
-                canvas.restoreToCount(save);
-            }
-
-            paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(5);
-            paint.setColor(Color.rgb(54, 88, 76));
-            canvas.drawRoundRect(new RectF(bodyFrame), 18, 18, paint);
-            paint.setStyle(Paint.Style.FILL);
+            drawBodyGuide(canvas, avatarFrame, bodyFrame);
 
             textPaint.setTextSize(Math.max(18, width * 0.04f));
             canvas.drawText(fitPartLabel + " fitting frame", width * 0.50f, height * 0.78f, textPaint);
@@ -2221,16 +2331,37 @@ public class MainActivity extends Activity {
             return new Rect(left, top, right, bottom);
         }
 
-        private Rect fittedGarmentFrame(Rect bodyFrame, Bitmap bitmap) {
-            float scale = Math.max(
-                    bodyFrame.width() * 1.15f / bitmap.getWidth(),
-                    bodyFrame.height() * 1.15f / bitmap.getHeight()
-            );
-            int targetWidth = Math.max(1, Math.round(bitmap.getWidth() * scale));
-            int targetHeight = Math.max(1, Math.round(bitmap.getHeight() * scale));
-            int left = bodyFrame.centerX() - targetWidth / 2;
-            int top = bodyFrame.centerY() - targetHeight / 2;
-            return new Rect(left, top, left + targetWidth, top + targetHeight);
+        private void drawBodyGuide(Canvas canvas, Rect avatarFrame, Rect bodyFrame) {
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(5);
+            paint.setColor(Color.rgb(54, 88, 76));
+            canvas.drawRoundRect(new RectF(bodyFrame), 18, 18, paint);
+
+            paint.setStrokeWidth(2);
+            paint.setColor(Color.argb(170, 185, 111, 82));
+            float step = bodyFrame.height() / 4f;
+            for (int i = 1; i < 4; i++) {
+                float y = bodyFrame.top + step * i;
+                canvas.drawLine(bodyFrame.left, y, bodyFrame.right, y, paint);
+            }
+
+            paint.setColor(Color.argb(180, 54, 88, 76));
+            canvas.drawLine(bodyFrame.centerX(), bodyFrame.top, bodyFrame.centerX(), bodyFrame.bottom, paint);
+
+            if (fitPartIndex == 0) {
+                drawArmGuide(canvas, avatarFrame, bodyFrame);
+            }
+            paint.setStyle(Paint.Style.FILL);
+        }
+
+        private void drawArmGuide(Canvas canvas, Rect avatarFrame, Rect bodyFrame) {
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(3);
+            paint.setColor(Color.argb(170, 54, 88, 76));
+            float shoulderY = bodyFrame.top + bodyFrame.height() * 0.12f;
+            float handY = bodyFrame.bottom + bodyFrame.height() * 0.18f;
+            canvas.drawLine(bodyFrame.left, shoulderY, avatarFrame.left + avatarFrame.width() * 0.12f, handY, paint);
+            canvas.drawLine(bodyFrame.right, shoulderY, avatarFrame.right - avatarFrame.width() * 0.12f, handY, paint);
         }
     }
 
@@ -2633,6 +2764,24 @@ public class MainActivity extends Activity {
             this.name = name;
             this.meta = meta;
             this.image = image;
+        }
+    }
+
+    private static class AvatarOption {
+        final String id;
+        final String label;
+        final String fullBodyImage;
+        final String upperBodyImage;
+        final String lowerBodyImage;
+        final boolean woman;
+
+        AvatarOption(String id, String label, String fullBodyImage, String upperBodyImage, String lowerBodyImage, boolean woman) {
+            this.id = id;
+            this.label = label;
+            this.fullBodyImage = fullBodyImage;
+            this.upperBodyImage = upperBodyImage;
+            this.lowerBodyImage = lowerBodyImage;
+            this.woman = woman;
         }
     }
 }
