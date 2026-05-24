@@ -63,11 +63,38 @@ OOTDiffusion is the model from:
 https://github.com/levihsu/OOTDiffusion
 ```
 
-Because OOTDiffusion needs a GPU environment, run it as a separate service and point this backend to it:
+Because OOTDiffusion needs its own model files and usually needs a GPU environment, run it as a separate service and point this backend to it.
+
+First clone and install OOTDiffusion by following the official project instructions. Make sure the required checkpoints are downloaded in the folders expected by that project.
+
+Then start the local AVA wrapper service from this Android project root:
 
 ```powershell
-set OOTDIFFUSION_SERVICE_URL=http://YOUR_GPU_SERVER:7860
-python -m uvicorn main:app --host 0.0.0.0 --port 8000
+.\run_ootdiffusion_service.bat
+```
+
+When the script asks for the OOTDiffusion folder, enter the local clone path, for example:
+
+```text
+C:\Users\Ali\Projects\OOTDiffusion
+```
+
+The wrapper runs here:
+
+```text
+http://127.0.0.1:7860
+```
+
+In a second terminal, start the normal AVA backend with OOTDiffusion enabled:
+
+```powershell
+.\run_backend_ootdiffusion.bat
+```
+
+That script sets:
+
+```powershell
+OOTDIFFUSION_SERVICE_URL=http://127.0.0.1:7860
 ```
 
 Expected service endpoint:
@@ -97,6 +124,28 @@ OOTDiffusion category mapping:
 0 = upperbody
 1 = lowerbody
 2 = dress
+```
+
+The wrapper calls OOTDiffusion's `run/run_ootd.py` script with:
+
+```text
+--model_path
+--cloth_path
+--model_type dc
+--category 0/1/2
+--scale 2.0
+--sample 1
+```
+
+Optional environment settings:
+
+```text
+OOTDIFFUSION_REPO        local OOTDiffusion folder
+OOTDIFFUSION_PYTHON     Python executable for the OOTDiffusion environment
+OOTDIFFUSION_MODEL_TYPE dc or hd, default dc
+OOTDIFFUSION_SCALE      default 2.0
+OOTDIFFUSION_SAMPLE     default 1
+OOTDIFFUSION_TIMEOUT    default 600 seconds
 ```
 
 Expected response:
