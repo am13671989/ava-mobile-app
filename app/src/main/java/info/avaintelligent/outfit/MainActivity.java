@@ -384,6 +384,7 @@ public class MainActivity extends Activity {
         hero.addView(personLookPreview(outfit));
         hero.addView(spacer(14));
         Button wear = button("Wear This", Color.WHITE, FOREST);
+        wear.setOnClickListener(v -> requestVirtualTryOn(currentOutfitRecommendation(outfit)));
         hero.addView(wear, new LinearLayout.LayoutParams(-1, dp(48)));
         page.addView(hero);
 
@@ -1718,13 +1719,18 @@ public class MainActivity extends Activity {
         preview.addView(label("Body-frame mode: the app extracts the avatar body area and shows the frame that a clothing photo must fit.", 14, MUTED, false));
         preview.addView(spacer(10));
         preview.addView(outfitPreview(recommendation));
+        preview.addView(section("Virtual try-on model"));
+        preview.addView(vtonModelSelector());
+        preview.addView(label(virtualTryOnStatus, 14, MUTED, false));
+        if (virtualTryOnBitmap != null && currentTryOnKey(recommendation).equals(virtualTryOnKey)) {
+            preview.addView(spacer(10));
+            preview.addView(imageFrame(virtualTryOnBitmap));
+        }
         preview.addView(section("Body part to fit"));
         preview.addView(fitPartSelector());
-        Button generate = button("Update Body Frame", FOREST, Color.WHITE);
-        generate.setOnClickListener(v -> {
-            resetVirtualTryOn("Local fit updated for " + currentFitPartLabel().toLowerCase(Locale.US) + ".");
-            renderTab(0);
-        });
+        Button generate = button(virtualTryOnLoading ? "Generating..." : "Generate AI Try-On", FOREST, Color.WHITE);
+        generate.setEnabled(!virtualTryOnLoading);
+        generate.setOnClickListener(v -> requestVirtualTryOn(recommendation));
         preview.addView(spacer(10));
         preview.addView(generate, new LinearLayout.LayoutParams(-1, dp(52)));
         return preview;
