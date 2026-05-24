@@ -1,7 +1,9 @@
 import base64
 import io
 import os
+import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -141,6 +143,12 @@ def try_on(request: TryOnRequest):
         outfit = decode_image(request.outfit_image_base64)
     except Exception as exc:
         raise HTTPException(status_code=400, detail="Invalid try-on image payload") from exc
+
+    hosted_space = os.getenv("HF_VTON_SPACE", "").strip()
+    if hosted_space:
+        result = call_huggingface_vton_space(hosted_space, person, outfit, request, model)
+        if result is not None:
+            return result
 
     ootdiffusion = os.getenv("OOTDIFFUSION_SERVICE_URL", "").strip()
     if ootdiffusion:
@@ -387,6 +395,87 @@ def response_error_detail(error: requests.HTTPError) -> str:
         detail = response.text
     detail = str(detail).replace("\n", " ").strip()
     return detail[:260] if detail else f"HTTP {response.status_code}"
+
+
+def call_huggingface_vton_space(
+    space: str,
+    person: Image.Image,
+    outfit: Image.Image,
+    request: TryOnRequest,
+    model: str,
+) -> Optional[TryOnResponse]:
+    try:
+        from gradio_client import Client, handle_file
+    except Exception:
+        return hosted_vton_demo(person, outfit, request, model, "gradio_client is not installed")
+
+    api_name = os.getenv("HF_VTON_API_NAME", "/tryon").strip() or "/tryon"
+    denoise_steps = float(os.getenv("HF_VTON_DENOISE_STEPS", "20"))
+    seed = float(os.getenv("HF_VTON_SEED", "42"))
+    garment_description = request.prompt or f"{request.style} {request.occasion} outfit"
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="ava_hf_vton_") as tmp:
+            tmp_dir = Path(tmp)
+            person_path = tmp_dir / "person.png"
+            garment_path = tmp_dir / "garment.png"
+            person.save(person_path)
+            outfit.save(garment_path)
+
+            client = Client(space)
+            result = client.predict(
+                {
+                    "background": handle_file(str(person_path)),
+                    "layers": [],
+                    "composite": None,
+                },
+                handle_file(str(garment_path)),
+                garment_description,
+                True,
+                False,
+                denoise_steps,
+                seed,
+                api_name=api_name,
+            )
+            output_path = gradio_output_path(result)
+            if output_path is None:
+                return hosted_vton_demo(person, outfit, request, model, "hosted Space returned no image")
+            generated = Image.open(output_path).convert("RGB")
+            return TryOnResponse(
+                image_base64=encode_png(generated),
+                message=f"Hosted virtual try-on completed with Hugging Face Space {space}.",
+                model=f"{model} hosted",
+                source="huggingface-space",
+            )
+    except Exception as error:
+        detail = f"{error.__class__.__name__}: {str(error)[:180]}"
+        return hosted_vton_demo(person, outfit, request, model, detail)
+
+
+def gradio_output_path(result) -> Optional[str]:
+    first = result[0] if isinstance(result, (tuple, list)) and result else result
+    if isinstance(first, str):
+        return first
+    if isinstance(first, dict):
+        path = first.get("path") or first.get("name")
+        return path if isinstance(path, str) else None
+    return None
+
+
+def hosted_vton_demo(
+    person: Image.Image,
+    outfit: Image.Image,
+    request: TryOnRequest,
+    model: str,
+    detail: str,
+) -> TryOnResponse:
+    demo = compose_reference_try_on_demo(person, outfit, request, model)
+    return TryOnResponse(
+        image_base64=encode_png(demo),
+        message=f"Hosted virtual try-on failed: {detail}. Showing reference-set demo.",
+        model=model,
+        source="reference-demo",
+    )
 
 
 def ootdiffusion_category(request: TryOnRequest) -> int:

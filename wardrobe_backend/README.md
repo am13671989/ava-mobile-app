@@ -91,11 +91,16 @@ In a second terminal, start the normal AVA backend with OOTDiffusion enabled:
 .\run_backend_ootdiffusion.bat
 ```
 
-That script sets:
+That script sets a hosted Hugging Face fallback first, then the local OOTDiffusion service:
 
 ```powershell
+HF_VTON_SPACE=yisol/IDM-VTON
+HF_VTON_API_NAME=/tryon
+HF_VTON_DENOISE_STEPS=20
 OOTDIFFUSION_SERVICE_URL=http://127.0.0.1:7860
 ```
+
+The hosted fallback is useful on computers without an NVIDIA CUDA GPU. If the hosted Space is available, the app receives a real virtual try-on image. If the hosted Space is down or busy, the backend shows the error and falls back to the reference-set demo.
 
 Expected service endpoint:
 
