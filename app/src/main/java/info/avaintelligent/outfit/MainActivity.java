@@ -411,6 +411,11 @@ public class MainActivity extends Activity {
         if (selectedImage != null) {
             upload.addView(imageFrame(extractedClothingImage != null ? extractedClothingImage : selectedImage));
             upload.addView(spacer(14));
+            if (extractedClothingImage != null) {
+                upload.addView(section("Humanized product preview"));
+                upload.addView(humanizedProductFrame(extractedClothingImage));
+                upload.addView(spacer(14));
+            }
         }
 
         LinearLayout actions = new LinearLayout(this);
@@ -1394,6 +1399,17 @@ public class MainActivity extends Activity {
         return frame;
     }
 
+    private LinearLayout humanizedProductFrame(Bitmap clothing) {
+        LinearLayout frame = new LinearLayout(this);
+        frame.setOrientation(LinearLayout.VERTICAL);
+        frame.setPadding(dp(10), dp(10), dp(10), dp(10));
+        frame.setBackground(round(BLUSH, 16, LINE));
+        frame.addView(new HumanizedProductView(this, clothing), new LinearLayout.LayoutParams(-1, dp(420)));
+        frame.addView(spacer(8));
+        frame.addView(label("The clothing cutout is the anchor; body parts are scaled from its edges.", 13, MUTED, false));
+        return frame;
+    }
+
     private LinearLayout chips(String[] labels) {
         HorizontalScrollView scroll = new HorizontalScrollView(this);
         scroll.setHorizontalScrollBarEnabled(false);
@@ -2118,10 +2134,7 @@ public class MainActivity extends Activity {
 
     private LinearLayout savedClothingCard(SavedClothingItem item) {
         LinearLayout card = panel(SURFACE);
-        ImageView image = new ImageView(this);
-        image.setImageBitmap(item.image);
-        image.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        image.setPadding(dp(6), dp(6), dp(6), dp(6));
+        HumanizedProductView image = new HumanizedProductView(this, item.image);
         image.setBackground(round(BLUSH, 14, LINE));
         card.addView(image, new LinearLayout.LayoutParams(-1, itemImageHeight()));
         card.addView(spacer(8));
@@ -2532,6 +2545,245 @@ public class MainActivity extends Activity {
 
         private boolean isNearWhite(int color) {
             return Color.red(color) > 242 && Color.green(color) > 242 && Color.blue(color) > 242;
+        }
+    }
+
+    private static class HumanizedProductView extends View {
+        private static final int TYPE_TOP = 0;
+        private static final int TYPE_SHORTS = 1;
+        private static final int TYPE_TROUSERS = 2;
+        private static final int TYPE_DRESS = 3;
+
+        private final Bitmap clothing;
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        HumanizedProductView(Context context, Bitmap clothing) {
+            super(context);
+            this.clothing = clothing;
+            textPaint.setColor(Color.rgb(32, 36, 33));
+            textPaint.setTextAlign(Paint.Align.CENTER);
+            textPaint.setTypeface(Typeface.DEFAULT_BOLD);
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            int width = getWidth();
+            int height = getHeight();
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.rgb(255, 252, 247));
+            canvas.drawRoundRect(new RectF(0, 0, width, height), 24, 24, paint);
+            if (clothing == null) {
+                return;
+            }
+
+            Rect src = visibleBounds(clothing);
+            int type = classify(src);
+            RectF dst = productPlacement(src, type, width, height);
+
+            drawBody(canvas, dst, type);
+            canvas.drawBitmap(clothing, src, dst, paint);
+            drawOcclusionDetails(canvas, dst, type);
+
+            textPaint.setTextSize(Math.max(13, width * 0.035f));
+            textPaint.setColor(Color.rgb(54, 88, 76));
+            canvas.drawText(typeLabel(type), width / 2f, height - 16, textPaint);
+        }
+
+        private RectF productPlacement(Rect src, int type, int width, int height) {
+            float sourceRatio = src.width() / Math.max(1f, src.height());
+            float targetHeight;
+            if (type == TYPE_TOP) {
+                targetHeight = height * 0.34f;
+            } else if (type == TYPE_SHORTS) {
+                targetHeight = height * 0.25f;
+            } else if (type == TYPE_DRESS) {
+                targetHeight = height * 0.56f;
+            } else {
+                targetHeight = height * 0.48f;
+            }
+            float targetWidth = Math.min(width * 0.72f, targetHeight * sourceRatio);
+            if (type == TYPE_TOP) {
+                targetWidth = Math.max(targetWidth, width * 0.44f);
+            }
+            float left = (width - targetWidth) / 2f;
+            float top;
+            if (type == TYPE_TOP) {
+                top = height * 0.30f;
+            } else if (type == TYPE_SHORTS) {
+                top = height * 0.47f;
+            } else {
+                top = height * 0.34f;
+            }
+            return new RectF(left, top, left + targetWidth, top + targetHeight);
+        }
+
+        private int classify(Rect src) {
+            float ratio = src.height() / Math.max(1f, src.width());
+            if (ratio > 2.0f) {
+                return TYPE_TROUSERS;
+            }
+            if (ratio > 1.45f) {
+                return TYPE_DRESS;
+            }
+            if (ratio < 0.78f) {
+                return TYPE_SHORTS;
+            }
+            return TYPE_TOP;
+        }
+
+        private void drawBody(Canvas canvas, RectF clothingDst, int type) {
+            paint.setStyle(Paint.Style.FILL);
+            int skin = Color.rgb(236, 190, 164);
+            int skinShadow = Color.rgb(214, 160, 134);
+            paint.setColor(skin);
+
+            float cx = clothingDst.centerX();
+            float bodyW = clothingDst.width();
+            if (type == TYPE_TOP) {
+                drawHeadNeck(canvas, cx, clothingDst.top, bodyW, skin);
+                drawTopArms(canvas, clothingDst, skin, skinShadow);
+                drawLowerBodyForTop(canvas, clothingDst, skin, skinShadow);
+            } else if (type == TYPE_SHORTS) {
+                drawTorsoAboveBottom(canvas, clothingDst, skin, skinShadow);
+                drawLegsBelow(canvas, clothingDst, skin, skinShadow, true);
+            } else if (type == TYPE_TROUSERS) {
+                drawTorsoAboveBottom(canvas, clothingDst, skin, skinShadow);
+                drawFeet(canvas, clothingDst, skinShadow);
+            } else {
+                drawHeadNeck(canvas, cx, clothingDst.top, bodyW, skin);
+                drawTopArms(canvas, clothingDst, skin, skinShadow);
+                drawFeet(canvas, clothingDst, skinShadow);
+            }
+        }
+
+        private void drawHeadNeck(Canvas canvas, float cx, float clothingTop, float bodyW, int skin) {
+            float headR = bodyW * 0.17f;
+            float headCy = clothingTop - headR * 1.85f;
+            paint.setColor(skin);
+            canvas.drawOval(new RectF(cx - headR, headCy - headR * 1.15f, cx + headR, headCy + headR * 1.18f), paint);
+            canvas.drawRoundRect(new RectF(cx - headR * 0.34f, headCy + headR * 0.80f, cx + headR * 0.34f, clothingTop + headR * 0.42f), headR * 0.22f, headR * 0.22f, paint);
+            paint.setColor(Color.rgb(80, 58, 46));
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(Math.max(2, bodyW * 0.012f));
+            canvas.drawArc(new RectF(cx - headR * 1.15f, headCy - headR * 1.30f, cx + headR * 1.15f, headCy + headR * 0.6f), 190, 160, false, paint);
+            paint.setStyle(Paint.Style.FILL);
+        }
+
+        private void drawTopArms(Canvas canvas, RectF shirt, int skin, int shadow) {
+            float sleeveY = shirt.top + shirt.height() * 0.23f;
+            float cuffY = shirt.top + shirt.height() * 0.54f;
+            float handY = shirt.bottom + shirt.height() * 0.50f;
+            float armW = Math.max(12, shirt.width() * 0.13f);
+            paint.setColor(skin);
+            drawLimb(canvas, shirt.left + shirt.width() * 0.10f, sleeveY, shirt.left - shirt.width() * 0.18f, handY, armW);
+            drawLimb(canvas, shirt.right - shirt.width() * 0.10f, sleeveY, shirt.right + shirt.width() * 0.18f, handY, armW);
+            paint.setColor(shadow);
+            canvas.drawOval(new RectF(shirt.left - shirt.width() * 0.25f, handY - armW * 0.40f, shirt.left - shirt.width() * 0.09f, handY + armW * 0.58f), paint);
+            canvas.drawOval(new RectF(shirt.right + shirt.width() * 0.09f, handY - armW * 0.40f, shirt.right + shirt.width() * 0.25f, handY + armW * 0.58f), paint);
+            paint.setColor(Color.argb(80, 120, 90, 75));
+            canvas.drawCircle(shirt.left + shirt.width() * 0.08f, cuffY, armW * 0.32f, paint);
+            canvas.drawCircle(shirt.right - shirt.width() * 0.08f, cuffY, armW * 0.32f, paint);
+        }
+
+        private void drawLowerBodyForTop(Canvas canvas, RectF shirt, int skin, int shadow) {
+            float hipY = shirt.bottom + shirt.height() * 0.08f;
+            float footY = Math.min(getHeight() - 34, shirt.bottom + shirt.height() * 1.75f);
+            paint.setColor(skin);
+            drawLimb(canvas, shirt.centerX() - shirt.width() * 0.15f, hipY, shirt.centerX() - shirt.width() * 0.18f, footY, shirt.width() * 0.13f);
+            drawLimb(canvas, shirt.centerX() + shirt.width() * 0.15f, hipY, shirt.centerX() + shirt.width() * 0.18f, footY, shirt.width() * 0.13f);
+            paint.setColor(shadow);
+            canvas.drawOval(new RectF(shirt.centerX() - shirt.width() * 0.30f, footY - 8, shirt.centerX() - shirt.width() * 0.08f, footY + 10), paint);
+            canvas.drawOval(new RectF(shirt.centerX() + shirt.width() * 0.08f, footY - 8, shirt.centerX() + shirt.width() * 0.30f, footY + 10), paint);
+        }
+
+        private void drawTorsoAboveBottom(Canvas canvas, RectF bottom, int skin, int shadow) {
+            drawHeadNeck(canvas, bottom.centerX(), bottom.top - bottom.height() * 0.64f, bottom.width() * 1.20f, skin);
+            paint.setColor(skin);
+            RectF torso = new RectF(bottom.left + bottom.width() * 0.10f, bottom.top - bottom.height() * 0.76f, bottom.right - bottom.width() * 0.10f, bottom.top + bottom.height() * 0.05f);
+            canvas.drawRoundRect(torso, bottom.width() * 0.18f, bottom.width() * 0.18f, paint);
+            paint.setColor(shadow);
+            canvas.drawRect(torso.left + torso.width() * 0.15f, torso.bottom - 6, torso.right - torso.width() * 0.15f, torso.bottom + 4, paint);
+        }
+
+        private void drawLegsBelow(Canvas canvas, RectF shorts, int skin, int shadow, boolean feet) {
+            float kneeY = shorts.bottom + shorts.height() * 0.85f;
+            float footY = Math.min(getHeight() - 34, shorts.bottom + shorts.height() * 1.88f);
+            paint.setColor(skin);
+            drawLimb(canvas, shorts.centerX() - shorts.width() * 0.18f, shorts.bottom, shorts.centerX() - shorts.width() * 0.18f, footY, shorts.width() * 0.13f);
+            drawLimb(canvas, shorts.centerX() + shorts.width() * 0.18f, shorts.bottom, shorts.centerX() + shorts.width() * 0.18f, footY, shorts.width() * 0.13f);
+            paint.setColor(shadow);
+            canvas.drawCircle(shorts.centerX() - shorts.width() * 0.18f, kneeY, shorts.width() * 0.05f, paint);
+            canvas.drawCircle(shorts.centerX() + shorts.width() * 0.18f, kneeY, shorts.width() * 0.05f, paint);
+            if (feet) {
+                drawFeet(canvas, new RectF(shorts.left, footY - shorts.height(), shorts.right, footY), shadow);
+            }
+        }
+
+        private void drawFeet(Canvas canvas, RectF anchor, int shadow) {
+            float y = Math.min(getHeight() - 28, anchor.bottom + Math.max(8, anchor.height() * 0.10f));
+            paint.setColor(shadow);
+            canvas.drawOval(new RectF(anchor.centerX() - anchor.width() * 0.33f, y - 8, anchor.centerX() - anchor.width() * 0.04f, y + 10), paint);
+            canvas.drawOval(new RectF(anchor.centerX() + anchor.width() * 0.04f, y - 8, anchor.centerX() + anchor.width() * 0.33f, y + 10), paint);
+        }
+
+        private void drawLimb(Canvas canvas, float x1, float y1, float x2, float y2, float width) {
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(width);
+            paint.setStrokeCap(Paint.Cap.ROUND);
+            canvas.drawLine(x1, y1, x2, y2, paint);
+            paint.setStrokeCap(Paint.Cap.BUTT);
+            paint.setStyle(Paint.Style.FILL);
+        }
+
+        private void drawOcclusionDetails(Canvas canvas, RectF dst, int type) {
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(2);
+            paint.setColor(Color.argb(90, 54, 88, 76));
+            if (type == TYPE_TOP) {
+                canvas.drawLine(dst.centerX(), dst.top + dst.height() * 0.12f, dst.centerX(), dst.bottom, paint);
+            } else if (type == TYPE_SHORTS || type == TYPE_TROUSERS) {
+                canvas.drawLine(dst.centerX(), dst.top + dst.height() * 0.12f, dst.centerX(), dst.bottom, paint);
+            }
+            paint.setStyle(Paint.Style.FILL);
+        }
+
+        private Rect visibleBounds(Bitmap bitmap) {
+            int width = bitmap.getWidth();
+            int height = bitmap.getHeight();
+            int minX = width;
+            int minY = height;
+            int maxX = -1;
+            int maxY = -1;
+            int[] pixels = new int[width * height];
+            bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    int color = pixels[y * width + x];
+                    if (Color.alpha(color) > 20 && !isNearWhite(color)) {
+                        minX = Math.min(minX, x);
+                        minY = Math.min(minY, y);
+                        maxX = Math.max(maxX, x);
+                        maxY = Math.max(maxY, y);
+                    }
+                }
+            }
+            if (maxX < minX || maxY < minY) {
+                return new Rect(0, 0, width, height);
+            }
+            return new Rect(minX, minY, maxX + 1, maxY + 1);
+        }
+
+        private boolean isNearWhite(int color) {
+            return Color.red(color) > 246 && Color.green(color) > 246 && Color.blue(color) > 246;
+        }
+
+        private String typeLabel(int type) {
+            if (type == TYPE_SHORTS) return "Shorts preview";
+            if (type == TYPE_TROUSERS) return "Trousers preview";
+            if (type == TYPE_DRESS) return "Dress preview";
+            return "T-shirt preview";
         }
     }
 
