@@ -1745,21 +1745,18 @@ public class MainActivity extends Activity {
         preview.addView(fitView, new LinearLayout.LayoutParams(-1, dp(330)));
         preview.addView(spacer(10));
         preview.addView(label(recommendation.title + " | " + currentFitPartLabel(), 18, INK, true));
-        preview.addView(label("Body-frame mode: the app extracts the avatar body area and shows the frame that a clothing photo must fit.", 14, MUTED, false));
+        preview.addView(label("Mesh-fit mode: the app uses the segmented wardrobe cutout and clips it into the avatar body shape instead of pasting the photo rectangle.", 14, MUTED, false));
         preview.addView(spacer(10));
         preview.addView(outfitPreview(recommendation));
-        preview.addView(section("Virtual try-on model"));
-        preview.addView(vtonModelSelector());
-        preview.addView(label(virtualTryOnStatus, 14, MUTED, false));
-        if (virtualTryOnBitmap != null && currentTryOnKey(recommendation).equals(virtualTryOnKey)) {
-            preview.addView(spacer(10));
-            preview.addView(imageFrame(virtualTryOnBitmap));
-        }
+        preview.addView(section("Avatar mesh fitting"));
+        preview.addView(label("Use Wardrobe to extract a clothing photo first. The newest extracted or saved item is fitted onto this avatar preview.", 14, MUTED, false));
         preview.addView(section("Body part to fit"));
         preview.addView(fitPartSelector());
-        Button generate = button(virtualTryOnLoading ? "Generating..." : "Generate AI Try-On", FOREST, Color.WHITE);
-        generate.setEnabled(!virtualTryOnLoading);
-        generate.setOnClickListener(v -> requestVirtualTryOn(recommendation));
+        Button generate = button("Refresh Mesh Fit", FOREST, Color.WHITE);
+        generate.setOnClickListener(v -> {
+            resetVirtualTryOn("Mesh fit refreshed with the current wardrobe garment.");
+            renderTab(0);
+        });
         preview.addView(spacer(10));
         preview.addView(generate, new LinearLayout.LayoutParams(-1, dp(52)));
         return preview;
@@ -2344,6 +2341,7 @@ public class MainActivity extends Activity {
             }
 
             Rect bodyFrame = selectedBodyFrame(avatarFrame);
+            drawGarmentMesh(canvas, avatarFrame, bodyFrame);
             drawBodyGuide(canvas, avatarFrame, bodyFrame);
 
             textPaint.setTextSize(Math.max(18, width * 0.04f));
@@ -2400,6 +2398,140 @@ public class MainActivity extends Activity {
             float handY = bodyFrame.bottom + bodyFrame.height() * 0.18f;
             canvas.drawLine(bodyFrame.left, shoulderY, avatarFrame.left + avatarFrame.width() * 0.12f, handY, paint);
             canvas.drawLine(bodyFrame.right, shoulderY, avatarFrame.right - avatarFrame.width() * 0.12f, handY, paint);
+        }
+
+        private void drawGarmentMesh(Canvas canvas, Rect avatarFrame, Rect bodyFrame) {
+            if (garment == null) {
+                return;
+            }
+            Path mesh = fitPartIndex == 1
+                    ? lowerBodyMesh(bodyFrame)
+                    : upperBodyMesh(bodyFrame);
+            RectF meshBounds = new RectF();
+            mesh.computeBounds(meshBounds, true);
+
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.argb(55, 32, 36, 33));
+            canvas.drawPath(offsetPath(mesh, 0, 5), paint);
+
+            int save = canvas.save();
+            canvas.clipPath(mesh);
+            Rect src = garmentVisibleBounds(garment);
+            canvas.drawBitmap(garment, src, meshBounds, paint);
+            canvas.restoreToCount(save);
+
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(3);
+            paint.setColor(Color.argb(190, 255, 252, 247));
+            canvas.drawPath(mesh, paint);
+
+            if (fitPartIndex == 0) {
+                drawNeckOpening(canvas, bodyFrame);
+            }
+            paint.setStyle(Paint.Style.FILL);
+        }
+
+        private Path upperBodyMesh(Rect bodyFrame) {
+            float left = bodyFrame.left;
+            float right = bodyFrame.right;
+            float top = bodyFrame.top;
+            float bottom = bodyFrame.bottom;
+            float width = bodyFrame.width();
+            float height = bodyFrame.height();
+            float cx = bodyFrame.centerX();
+
+            Path path = new Path();
+            path.moveTo(cx - width * 0.16f, top + height * 0.05f);
+            path.lineTo(left + width * 0.12f, top + height * 0.09f);
+            path.lineTo(left - width * 0.07f, top + height * 0.30f);
+            path.lineTo(left + width * 0.11f, top + height * 0.38f);
+            path.lineTo(left + width * 0.24f, bottom);
+            path.lineTo(right - width * 0.24f, bottom);
+            path.lineTo(right - width * 0.11f, top + height * 0.38f);
+            path.lineTo(right + width * 0.07f, top + height * 0.30f);
+            path.lineTo(right - width * 0.12f, top + height * 0.09f);
+            path.lineTo(cx + width * 0.16f, top + height * 0.05f);
+            path.quadTo(cx, top + height * 0.22f, cx - width * 0.16f, top + height * 0.05f);
+            path.close();
+            return path;
+        }
+
+        private Path lowerBodyMesh(Rect bodyFrame) {
+            float left = bodyFrame.left;
+            float right = bodyFrame.right;
+            float top = bodyFrame.top;
+            float bottom = bodyFrame.bottom;
+            float width = bodyFrame.width();
+            float cx = bodyFrame.centerX();
+
+            Path path = new Path();
+            path.moveTo(left + width * 0.04f, top);
+            path.lineTo(right - width * 0.04f, top);
+            path.lineTo(right + width * 0.10f, bottom);
+            path.lineTo(cx + width * 0.07f, bottom);
+            path.lineTo(cx, top + bodyFrame.height() * 0.28f);
+            path.lineTo(cx - width * 0.07f, bottom);
+            path.lineTo(left - width * 0.10f, bottom);
+            path.close();
+            return path;
+        }
+
+        private void drawNeckOpening(Canvas canvas, Rect bodyFrame) {
+            float cx = bodyFrame.centerX();
+            float top = bodyFrame.top;
+            float width = bodyFrame.width();
+            float height = bodyFrame.height();
+            Path neck = new Path();
+            neck.moveTo(cx - width * 0.13f, top + height * 0.05f);
+            neck.quadTo(cx, top + height * 0.20f, cx + width * 0.13f, top + height * 0.05f);
+            neck.quadTo(cx, top + height * 0.15f, cx - width * 0.13f, top + height * 0.05f);
+            neck.close();
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.argb(210, 248, 212, 190));
+            canvas.drawPath(neck, paint);
+        }
+
+        private Path offsetPath(Path original, float dx, float dy) {
+            Path copy = new Path(original);
+            copy.offset(dx, dy);
+            return copy;
+        }
+
+        private Rect garmentVisibleBounds(Bitmap bitmap) {
+            int width = bitmap.getWidth();
+            int height = bitmap.getHeight();
+            int minX = width;
+            int minY = height;
+            int maxX = -1;
+            int maxY = -1;
+            int[] pixels = new int[width * height];
+            bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    int color = pixels[y * width + x];
+                    if (Color.alpha(color) > 24 && !isNearWhite(color)) {
+                        minX = Math.min(minX, x);
+                        minY = Math.min(minY, y);
+                        maxX = Math.max(maxX, x);
+                        maxY = Math.max(maxY, y);
+                    }
+                }
+            }
+            if (maxX < minX || maxY < minY) {
+                return new Rect(0, 0, width, height);
+            }
+            int padX = Math.max(2, (maxX - minX) / 18);
+            int padY = Math.max(2, (maxY - minY) / 18);
+            return new Rect(
+                    Math.max(0, minX - padX),
+                    Math.max(0, minY - padY),
+                    Math.min(width, maxX + padX + 1),
+                    Math.min(height, maxY + padY + 1)
+            );
+        }
+
+        private boolean isNearWhite(int color) {
+            return Color.red(color) > 242 && Color.green(color) > 242 && Color.blue(color) > 242;
         }
     }
 
