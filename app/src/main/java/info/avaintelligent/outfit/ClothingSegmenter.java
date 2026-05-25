@@ -32,6 +32,16 @@ final class ClothingSegmenter implements AutoCloseable {
     private final OrtEnvironment environment;
     private final OrtSession session;
 
+    static final class SegmentationResult {
+        final Bitmap bitmap;
+        final int dominantLabel;
+
+        SegmentationResult(Bitmap bitmap, int dominantLabel) {
+            this.bitmap = bitmap;
+            this.dominantLabel = dominantLabel;
+        }
+    }
+
     ClothingSegmenter(Context context) throws IOException, OrtException {
         environment = OrtEnvironment.getEnvironment();
         File model = copyAssetToFiles(context);
@@ -44,25 +54,37 @@ final class ClothingSegmenter implements AutoCloseable {
             boolean transparentBackground,
             boolean cropToClothing)
             throws OrtException {
+        return segmentWithMetadata(source, selectedLabels, transparentBackground, cropToClothing).bitmap;
+    }
+
+    SegmentationResult segmentWithMetadata(
+            Bitmap source,
+            Set<Integer> selectedLabels,
+            boolean transparentBackground,
+            boolean cropToClothing)
+            throws OrtException {
         Bitmap inputBitmap = Bitmap.createScaledBitmap(source, INPUT_SIZE, INPUT_SIZE, true);
         float[] inputValues = normalizedChw(inputBitmap);
-        boolean[] selectedMask;
+        MaskResult maskResult;
         try (OnnxTensor input = OnnxTensor.createTensor(
                 environment,
                 FloatBuffer.wrap(inputValues),
                 new long[]{1, 3, INPUT_SIZE, INPUT_SIZE});
              OrtSession.Result result = session.run(Collections.singletonMap("pixel_values", input))) {
             FloatBuffer logits = ((OnnxTensor) result.get(0)).getFloatBuffer();
-            selectedMask = maskFromLogits(logits, selectedLabels);
+            maskResult = maskFromLogits(logits, selectedLabels);
         }
-        if (!hasForeground(selectedMask)) {
+        if (!hasForeground(maskResult.mask)) {
             throw new IllegalStateException("No selected clothing was detected.");
         }
-        Bitmap cutout = applyMaskAtOriginalResolution(source, selectedMask, transparentBackground);
+        Bitmap cutout = applyMaskAtOriginalResolution(source, maskResult.mask, transparentBackground);
         if (!cropToClothing) {
-            return cutout;
+            return new SegmentationResult(cutout, maskResult.dominantLabel);
         }
-        return cropMaskBounds(cutout, selectedMask, source.getWidth(), source.getHeight());
+        return new SegmentationResult(
+                cropMaskBounds(cutout, maskResult.mask, source.getWidth(), source.getHeight()),
+                maskResult.dominantLabel
+        );
     }
 
     private boolean hasForeground(boolean[] mask) {
@@ -88,9 +110,10 @@ final class ClothingSegmenter implements AutoCloseable {
         return values;
     }
 
-    private boolean[] maskFromLogits(FloatBuffer logits, Set<Integer> selectedLabels) {
+    private MaskResult maskFromLogits(FloatBuffer logits, Set<Integer> selectedLabels) {
         int plane = INPUT_SIZE * INPUT_SIZE;
         boolean[] mask = new boolean[plane];
+        int[] counts = new int[CLASS_COUNT];
         for (int pixel = 0; pixel < plane; pixel++) {
             int bestLabel = 0;
             float bestScore = logits.get(pixel);
@@ -102,8 +125,29 @@ final class ClothingSegmenter implements AutoCloseable {
                 }
             }
             mask[pixel] = selectedLabels.contains(bestLabel);
+            if (mask[pixel]) {
+                counts[bestLabel]++;
+            }
         }
-        return mask;
+        int dominantLabel = 0;
+        int dominantCount = 0;
+        for (int label : selectedLabels) {
+            if (label >= 0 && label < counts.length && counts[label] > dominantCount) {
+                dominantLabel = label;
+                dominantCount = counts[label];
+            }
+        }
+        return new MaskResult(mask, dominantLabel);
+    }
+
+    private static final class MaskResult {
+        final boolean[] mask;
+        final int dominantLabel;
+
+        MaskResult(boolean[] mask, int dominantLabel) {
+            this.mask = mask;
+            this.dominantLabel = dominantLabel;
+        }
     }
 
     private Bitmap applyMaskAtOriginalResolution(Bitmap source, boolean[] mask, boolean transparent) {

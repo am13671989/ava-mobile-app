@@ -413,7 +413,7 @@ public class MainActivity extends Activity {
             upload.addView(spacer(14));
             if (extractedClothingImage != null) {
                 upload.addView(section("Humanized product preview"));
-                upload.addView(humanizedProductFrame(extractedClothingImage));
+                upload.addView(humanizedProductFrame(extractedClothingImage, extractedClothingName));
                 upload.addView(spacer(14));
             }
         }
@@ -556,11 +556,7 @@ public class MainActivity extends Activity {
         new Thread(() -> {
             ExtractionResult result;
             try {
-                result = new ExtractionResult(
-                        extractWithOfflineClothingSegmenter(bitmap),
-                        "Clothing Item",
-                        "Offline AI segmented, cropped, removed background, and prepared this garment for try-on"
-                );
+                result = extractWithOfflineClothingSegmenterResult(bitmap);
             } catch (Exception offlineError) {
                 result = null;
             }
@@ -1117,7 +1113,7 @@ public class MainActivity extends Activity {
         return centerOnTransparentCanvas(removeBackground(cropped), 640, 640);
     }
 
-    private Bitmap extractWithOfflineClothingSegmenter(Bitmap source) throws Exception {
+    private ExtractionResult extractWithOfflineClothingSegmenterResult(Bitmap source) throws Exception {
         Set<Integer> labels = new HashSet<>(Arrays.asList(
                 ClothingSegmenter.UPPER_CLOTHES,
                 ClothingSegmenter.SKIRT,
@@ -1125,9 +1121,27 @@ public class MainActivity extends Activity {
                 ClothingSegmenter.DRESS
         ));
         try (ClothingSegmenter segmenter = new ClothingSegmenter(this)) {
-            Bitmap cutout = segmenter.segment(source, labels, true, true);
-            return centerOnTransparentCanvas(cutout, 640, 640);
+            ClothingSegmenter.SegmentationResult segmented = segmenter.segmentWithMetadata(source, labels, true, true);
+            String name = clothingNameFromAtrLabel(segmented.dominantLabel);
+            return new ExtractionResult(
+                    centerOnTransparentCanvas(segmented.bitmap, 640, 640),
+                    name,
+                    "Offline SCHP engine segmented and cropped the " + name.toLowerCase(Locale.US)
+                            + ", then prepared it for the humanized product preview"
+            );
         }
+    }
+
+    private Bitmap extractWithOfflineClothingSegmenter(Bitmap source) throws Exception {
+        return extractWithOfflineClothingSegmenterResult(source).bitmap;
+    }
+
+    private String clothingNameFromAtrLabel(int label) {
+        if (label == ClothingSegmenter.UPPER_CLOTHES) return "T-Shirt";
+        if (label == ClothingSegmenter.SKIRT) return "Skirt";
+        if (label == ClothingSegmenter.PANTS) return "Trousers";
+        if (label == ClothingSegmenter.DRESS) return "Dress";
+        return "Clothing Item";
     }
 
     private int estimateBackgroundColor(Bitmap bitmap) {
@@ -1399,14 +1413,14 @@ public class MainActivity extends Activity {
         return frame;
     }
 
-    private LinearLayout humanizedProductFrame(Bitmap clothing) {
+    private LinearLayout humanizedProductFrame(Bitmap clothing, String clothingName) {
         LinearLayout frame = new LinearLayout(this);
         frame.setOrientation(LinearLayout.VERTICAL);
         frame.setPadding(dp(10), dp(10), dp(10), dp(10));
         frame.setBackground(round(BLUSH, 16, LINE));
-        frame.addView(new HumanizedProductView(this, clothing), new LinearLayout.LayoutParams(-1, dp(420)));
+        frame.addView(new HumanizedProductView(this, clothing, clothingName), new LinearLayout.LayoutParams(-1, dp(420)));
         frame.addView(spacer(8));
-        frame.addView(label("The clothing cutout is the anchor; body parts are scaled from its edges.", 13, MUTED, false));
+        frame.addView(label(clothingName + " cutout is the anchor; body parts are scaled from its extracted edges.", 13, MUTED, false));
         return frame;
     }
 
@@ -2134,7 +2148,7 @@ public class MainActivity extends Activity {
 
     private LinearLayout savedClothingCard(SavedClothingItem item) {
         LinearLayout card = panel(SURFACE);
-        HumanizedProductView image = new HumanizedProductView(this, item.image);
+        HumanizedProductView image = new HumanizedProductView(this, item.image, item.name);
         image.setBackground(round(BLUSH, 14, LINE));
         card.addView(image, new LinearLayout.LayoutParams(-1, itemImageHeight()));
         card.addView(spacer(8));
@@ -2555,12 +2569,14 @@ public class MainActivity extends Activity {
         private static final int TYPE_DRESS = 3;
 
         private final Bitmap clothing;
+        private final String clothingName;
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
         private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-        HumanizedProductView(Context context, Bitmap clothing) {
+        HumanizedProductView(Context context, Bitmap clothing, String clothingName) {
             super(context);
             this.clothing = clothing;
+            this.clothingName = clothingName == null ? "" : clothingName;
             textPaint.setColor(Color.rgb(32, 36, 33));
             textPaint.setTextAlign(Paint.Align.CENTER);
             textPaint.setTypeface(Typeface.DEFAULT_BOLD);
@@ -2620,6 +2636,21 @@ public class MainActivity extends Activity {
         }
 
         private int classify(Rect src) {
+            String clean = clothingName.toLowerCase(Locale.US);
+            if (clean.contains("trouser") || clean.contains("pant") || clean.contains("jean")) {
+                return TYPE_TROUSERS;
+            }
+            if (clean.contains("short") || clean.contains("skirt")) {
+                return TYPE_SHORTS;
+            }
+            if (clean.contains("dress")) {
+                return TYPE_DRESS;
+            }
+            if (clean.contains("shirt") || clean.contains("top") || clean.contains("hoodie")
+                    || clean.contains("sweater") || clean.contains("jacket") || clean.contains("coat")
+                    || clean.contains("blazer")) {
+                return TYPE_TOP;
+            }
             float ratio = src.height() / Math.max(1f, src.width());
             if (ratio > 2.0f) {
                 return TYPE_TROUSERS;
