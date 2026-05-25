@@ -52,10 +52,12 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Locale;
+import java.util.Set;
 
 public class MainActivity extends Activity {
     private static final int REQUEST_CAMERA = 10;
@@ -403,7 +405,7 @@ public class MainActivity extends Activity {
         LinearLayout page = page("Wardrobe", "42 items scanned across five categories.");
         LinearLayout upload = panel(SURFACE);
         upload.addView(label("Extract clothing", 22, INK, true));
-        upload.addView(label("Take a photo or choose one from gallery. Google Cloud detects clothes, then you confirm the extracted item.", 14, MUTED, false));
+        upload.addView(label("Take a photo or choose one from gallery. Offline AI extracts and crops the clothing item, then you confirm it for avatar try-on.", 14, MUTED, false));
         upload.addView(spacer(14));
 
         if (selectedImage != null) {
@@ -540,9 +542,7 @@ public class MainActivity extends Activity {
         analysisInProgress = true;
         extractedClothingImage = null;
         lastAiResult = "Extracting clothing...";
-        lastAiDetails = hasGoogleCloudVisionKey()
-                ? "Google Cloud Vision is finding clothing objects."
-                : "No Google Cloud key found. Using local extraction fallback.";
+        lastAiDetails = "Offline SCHP AI is segmenting and cropping the clothing item on this device.";
         renderTab(1);
         createExtractedClothingImage(selectedImage);
     }
@@ -550,19 +550,29 @@ public class MainActivity extends Activity {
     private void createExtractedClothingImage(Bitmap bitmap) {
         new Thread(() -> {
             ExtractionResult result;
-            if (hasBackendUrl()) {
+            try {
+                result = new ExtractionResult(
+                        extractWithOfflineClothingSegmenter(bitmap),
+                        "Clothing Item",
+                        "Offline AI segmented, cropped, removed background, and prepared this garment for try-on"
+                );
+            } catch (Exception offlineError) {
+                result = null;
+            }
+            if (result == null && hasBackendUrl()) {
                 result = extractWithBackend(bitmap);
-            } else if (hasGoogleCloudVisionKey()) {
+            } else if (result == null && hasGoogleCloudVisionKey()) {
                 result = extractWithGoogleCloudVision(bitmap);
-            } else {
+            } else if (result == null) {
                 result = new ExtractionResult(extractForegroundClothing(bitmap), "Clothing Item", "Local fallback extraction");
             }
+            final ExtractionResult finalResult = result;
             runOnUiThread(() -> {
                 analysisInProgress = false;
-                extractedClothingImage = result.bitmap;
-                extractedClothingName = result.itemName;
-                lastAiResult = "Detected: " + result.itemName;
-                lastAiDetails = result.message + ". Review the preview, then confirm if it is correct.";
+                extractedClothingImage = finalResult.bitmap;
+                extractedClothingName = finalResult.itemName;
+                lastAiResult = "Detected: " + finalResult.itemName;
+                lastAiDetails = finalResult.message + ". Review the preview, then confirm if it is correct.";
                 renderTab(1);
             });
         }).start();
@@ -607,7 +617,7 @@ public class MainActivity extends Activity {
             Bitmap person = personPhoto != null
                     ? personPhoto
                     : currentAvatarBitmap("full");
-            Bitmap outfitSet = BitmapFactory.decodeResource(getResources(), sampleOutfitSetResource(recommendation));
+            Bitmap outfitSet = currentFittingGarment(recommendation);
 
             JSONObject request = new JSONObject();
             request.put("person_image_base64", encodeBitmap(person));
@@ -1040,7 +1050,7 @@ public class MainActivity extends Activity {
         }
 
         String name = extractedClothingName;
-        String meta = "Background removed | Avatar ready";
+        String meta = "Offline AI cutout | Avatar ready";
         Bitmap savedBitmap = extractedClothingImage.copy(Bitmap.Config.ARGB_8888, false);
         savedClothingItems.add(0, new SavedClothingItem(name, meta, savedBitmap));
         selectedImage = null;
@@ -1048,12 +1058,18 @@ public class MainActivity extends Activity {
         extractedClothingName = "Clothing Item";
         analysisInProgress = false;
         lastAiResult = "Saved to wardrobe";
-        lastAiDetails = name + " was added to your wardrobe items.";
+        lastAiDetails = name + " was added to your wardrobe and will be used by Outfit AI try-on.";
         Toast.makeText(this, "Item saved", Toast.LENGTH_SHORT).show();
         renderTab(1);
     }
 
     private Bitmap extractForegroundClothing(Bitmap source) {
+        try {
+            return extractWithOfflineClothingSegmenter(source);
+        } catch (Exception ignored) {
+            // Keep the color-key fallback for phones that cannot load the ONNX engine.
+        }
+
         Bitmap working = source.copy(Bitmap.Config.ARGB_8888, false);
         int width = working.getWidth();
         int height = working.getHeight();
@@ -1094,6 +1110,19 @@ public class MainActivity extends Activity {
 
         Bitmap cropped = Bitmap.createBitmap(working, minX, minY, maxX - minX + 1, maxY - minY + 1);
         return centerOnTransparentCanvas(removeBackground(cropped), 640, 640);
+    }
+
+    private Bitmap extractWithOfflineClothingSegmenter(Bitmap source) throws Exception {
+        Set<Integer> labels = new HashSet<>(Arrays.asList(
+                ClothingSegmenter.UPPER_CLOTHES,
+                ClothingSegmenter.SKIRT,
+                ClothingSegmenter.PANTS,
+                ClothingSegmenter.DRESS
+        ));
+        try (ClothingSegmenter segmenter = new ClothingSegmenter(this)) {
+            Bitmap cutout = segmenter.segment(source, labels, true, true);
+            return centerOnTransparentCanvas(cutout, 640, 640);
+        }
     }
 
     private int estimateBackgroundColor(Bitmap bitmap) {
@@ -1740,6 +1769,9 @@ public class MainActivity extends Activity {
         if (extractedClothingImage != null) {
             return extractedClothingImage;
         }
+        if (!savedClothingItems.isEmpty()) {
+            return savedClothingItems.get(0).image;
+        }
         return BitmapFactory.decodeResource(getResources(), sampleOutfitSetResource(recommendation));
     }
 
@@ -1758,7 +1790,7 @@ public class MainActivity extends Activity {
         row.addView(person, new LinearLayout.LayoutParams(0, dp(230), 1));
 
         ImageView outfit = new ImageView(this);
-        outfit.setImageResource(sampleOutfitSetResource(recommendation));
+        outfit.setImageBitmap(currentFittingGarment(recommendation));
         outfit.setScaleType(ImageView.ScaleType.CENTER_CROP);
         outfit.setBackground(round(SURFACE, 14, LINE));
         outfit.setPadding(dp(6), dp(6), dp(6), dp(6));

@@ -22,4 +22,12 @@ android {
         def wardrobeBackendBaseUrl = project.findProperty("WARDROBE_BACKEND_BASE_URL") ?: ""
         buildConfigField "String", "WARDROBE_BACKEND_BASE_URL", "\"${wardrobeBackendBaseUrl}\""
     }
+
+    androidResources {
+        noCompress += ["onnx"]
+    }
+}
+
+dependencies {
+    implementation "com.microsoft.onnxruntime:onnxruntime-android:1.25.0"
 }
